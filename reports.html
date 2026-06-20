@@ -505,8 +505,8 @@
     <div id="print-engine-container" class="hidden print-window-view flex w-full justify-center bg-white"></div>
 
     <script>
-        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbwjgXQ_bY_WKg8rnlVms7PFwq5igo1uiPRerYTrfxt-dMw5VlgnO8-zqKep6z0qwnd-jw/exec";
-        const API_SECRET = "vwtbciPw@YCcqWHxi94%z";
+        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbxYma2QfaspdQuoWZxxOUrN3YfXuY4OAECn-G8aekTSLlSY-H6UAe-1zF0H0jVTzfyEbA/exec";
+        const API_SECRET = "vwtbciPw@YCcqWHxi94%2";
 
         const state = {
             company: { name: 'G.M.ENTERPRISES', address: 'Byculla(W)', gstin: '27AAAAA00000001', state: 'Maharashtra', stateCode: '27', phone: '+91 00000 00000', email: 'info@gmenterprises.com', website: 'www.gmenterprises.com' }
@@ -823,7 +823,7 @@
                     <td class="text-right font-bold text-slate-800 pr-5">${fmtINR(parseFloat(inv.grandTotal)||0)}</td>
                     <td class="text-slate-400 text-[11px]">${inv.username || '-'}</td>
                     <td class="text-center">
-                        <button onclick="openInvoiceModal(${idx})" class="px-3 py-1.5 text-[11px] font-bold bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg border border-teal-200 transition-all">View</button>
+                        <div class="flex items-center justify-center gap-1.5"><button onclick="openInvoiceModal(${idx})" class="px-3 py-1.5 text-[11px] font-bold bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg border border-teal-200 transition-all">View</button><button onclick="sendInvoiceEmailFromReports(${idx})" id="inv-email-btn-${idx}" class="px-3 py-1.5 text-[11px] font-bold bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg border border-violet-200 transition-all">📧 Email</button></div>
                     </td>
                 </tr>
             `).join('');
@@ -1071,7 +1071,7 @@
                     <td class="text-right font-bold text-slate-800 pr-5">${fmtINR(parseFloat(ch.grandTotal)||0)}</td>
                     <td class="text-slate-400 text-[11px]">${ch.username || '-'}</td>
                     <td class="text-center">
-                        <button onclick="openChallanModal(${idx})" class="px-3 py-1.5 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg border border-amber-200 transition-all">View</button>
+                        <div class="flex items-center justify-center gap-1.5"><button onclick="openChallanModal(${idx})" class="px-3 py-1.5 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg border border-amber-200 transition-all">View</button><button onclick="sendChallanEmailFromReports(${idx})" id="ch-email-btn-${idx}" class="px-3 py-1.5 text-[11px] font-bold bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg border border-violet-200 transition-all">📧 Email</button></div>
                     </td>
                 </tr>
             `).join('');
@@ -1867,6 +1867,76 @@
                 });
             }
         });
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // ── SEND EMAIL FROM REPORTS ───────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════════════
+
+        async function sendInvoiceEmailFromReports(idx) {
+            const arr = repAllFiltered.length ? repAllFiltered : repAllInvoices;
+            const inv = arr[idx];
+            if (!inv) return;
+
+            const btnId = 'inv-email-btn-' + idx;
+            const btn = document.getElementById(btnId);
+            const origText = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+            try {
+                const token = sessionStorage.getItem('gme_token') || '';
+                const payload = {
+                    action: 'emailInvoiceReport',
+                    secret: API_SECRET,
+                    token:  token,
+                    invoiceNo: inv.invoiceNo
+                };
+                const res  = await fetch(googleScriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.sessionExpired) { doLogout(); return; }
+                if (data.success) {
+                    showToast('📧 Invoice ' + inv.invoiceNo + ' emailed to itransform007@gmail.com', 'success');
+                } else {
+                    showToast('Email failed: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch(e) {
+                showToast('Network error while sending email', 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = origText; }
+            }
+        }
+
+        async function sendChallanEmailFromReports(idx) {
+            const arr = repChallanFiltered.length ? repChallanFiltered : repAllChallans;
+            const ch = arr[idx];
+            if (!ch) return;
+
+            const btnId = 'ch-email-btn-' + idx;
+            const btn = document.getElementById(btnId);
+            const origText = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+            try {
+                const token = sessionStorage.getItem('gme_token') || '';
+                const payload = {
+                    action: 'emailChallanReport',
+                    secret: API_SECRET,
+                    token:  token,
+                    challanNo: ch.challanNo
+                };
+                const res  = await fetch(googleScriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.sessionExpired) { doLogout(); return; }
+                if (data.success) {
+                    showToast('📧 Challan ' + ch.challanNo + ' emailed to itransform007@gmail.com', 'success');
+                } else {
+                    showToast('Email failed: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch(e) {
+                showToast('Network error while sending email', 'error');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = origText; }
+            }
+        }
 
         window.onload = initReportPanel;
     </script>
