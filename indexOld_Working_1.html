@@ -482,7 +482,7 @@
             }
 
             const filledRows = state.items.length + (totals.cgstAmt > 0 ? 2 : totals.igstAmt > 0 ? 1 : 0);
-            const blankCount = Math.max(0, 24 - filledRows);
+            const blankCount = Math.max(0, 22 - filledRows);
             let blankRowsHtml = '';
             for (let i = 0; i < blankCount; i++) {
                 blankRowsHtml += `
@@ -677,19 +677,19 @@
                 </body>
                 </html>`;
 
-            const old = document.getElementById('_print_frame');
-            if (old) old.parentNode.removeChild(old);
-            const iframe = document.createElement('iframe');
-            iframe.id = '_print_frame';
-            iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;';
-            iframe.onload = function() {
-                setTimeout(function() { iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 250);
-            };
-            document.body.appendChild(iframe);
+            let iframe = document.getElementById('_print_frame');
+            if (!iframe) {
+                iframe = document.createElement('iframe');
+                iframe.id = '_print_frame';
+                iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
+                document.body.appendChild(iframe);
+            }
             const iDoc = iframe.contentDocument || iframe.contentWindow.document;
             iDoc.open();
             iDoc.write(htmlContent);
             iDoc.close();
+            iframe.contentWindow.onload = function() { setTimeout(function() { iframe.contentWindow.print(); }, 200); };
+            setTimeout(function() { try { iframe.contentWindow.print(); } catch(e) {} }, 600);
         }
 
         (function initLoginCheck() {
