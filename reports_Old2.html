@@ -1128,7 +1128,7 @@
             const buyer = { name: ch.buyerName, address: ch.buyerAddress, gstin: ch.buyerGstin, state: ch.buyerState || 'Maharashtra', stateCode: ch.buyerStateCode || '27', phone: ch.buyerPhone, email: ch.buyerEmail };
             const company = state.company;
 
-            const rawDate = (meta.date || '').split('T')[0];
+            const rawDate = meta.date || '';
             const fmtDatePrint = rawDate ? rawDate.split('-').reverse().join('-') : '-';
 
             let totalQty = 0;
@@ -1494,7 +1494,7 @@
             const taxes = { cgst: parseFloat(inv.cgstRate || 0) || 9, sgst: parseFloat(inv.sgstRate || 0) || 9, igst: parseFloat(inv.igstRate || 0) || 18 };
             const isIGST = totals.igstAmt > 0;
 
-            const rawDate = (meta.date || '').split('T')[0];
+            const rawDate = meta.date || '';
             const fmtDate = rawDate ? rawDate.split('-').reverse().join('-') : '-';
 
             let itemRowsHtml = '';
