@@ -1,0 +1,1176 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// G.M. ENTERPRISES — Google Apps Script (SECURED VERSION V12)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// SET UP INSTRUCTIONS:
+// 1. Open your Google Sheet named "New Database_V11" (or your active sheet).
+// 2. Go to Extensions → Apps Script. Paste this code entirely.
+// 3. Click the Gear Icon (Project Settings) on the left sidebar.
+// 4. Under "Script Properties", click "Add script property" and add:
+//    - API_SECRET  → Must match the API_SECRET in your HTML files
+//    - USER_admin  → Your desired password, e.g., admin123
+//    - DISPLAY_admin → Display name, e.g., Admin
+//    - COMPANY_EMAIL → (Optional) CC email for invoice copies, e.g., info@gmenterprises.com
+// 5. Click Deploy → New Deployment → Select "Web App".
+//    - Execute As: Me
+//    - Who has access: Anyone
+// 6. Copy the Web App URL and paste it into googleScriptUrl in all HTML files.
+//
+// EMAIL SETUP NOTE:
+//   Gmail sends the invoice PDF automatically once an invoice is saved.
+//   The buyer's email (from the invoice form) is used as the TO address.
+//   If COMPANY_EMAIL is set in Script Properties, a CC copy is also sent there.
+//   If buyer email is blank, the email step is silently skipped.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SESSION_TTL_SEC = 14400; // 4 Hours persistent session duration
+
+// Sheet configuration constants
+const SHEET_INVOICES = 'Invoices';
+const SHEET_CHALLANS = 'Challans';
+const SHEET_BUYERS   = 'Buyers';
+
+// ── UTILITIES ────────────────────────────────────────────────────────────────
+
+function jsonOut(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getProps() {
+  return PropertiesService.getScriptProperties().getProperties();
+}
+
+// Safely converts a GAS date value to YYYY-MM-DD string.
+// GAS auto-converts date cells in Sheets to JS Date objects, so we
+// cannot assume .date is always a string — guard against both cases.
+function gasDateToYMD(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    var y = val.getFullYear();
+    var m = String(val.getMonth() + 1).padStart(2, '0');
+    var d = String(val.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+  return String(val).trim();
+}
+
+function generateToken() {
+  return Utilities.getUuid().replace(/-/g, '') + Date.now().toString(36);
+}
+
+// Session validation with sliding expiration
+function validateSession(token) {
+  if (!token) return null;
+  const cache = CacheService.getScriptCache();
+  const sessionStr = cache.get(token);
+  if (!sessionStr) return null;
+  cache.put(token, sessionStr, SESSION_TTL_SEC); // Refresh TTL
+  return JSON.parse(sessionStr);
+}
+
+function validateSecret(secret) {
+  const expected = getProps()['API_SECRET'] || '';
+  return expected !== '' && secret === expected;
+}
+
+// Dynamic target sheet accessor with automated structural initialization
+function getSheet(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    if (name === SHEET_INVOICES) {
+      sheet.appendRow([
+        'Invoice No', 'Date', 'Challan No', 'Buyer Name', 'Buyer Phone', 'Buyer Email',
+        'Buyer Address', 'Buyer GSTIN', 'Sub Total', 'CGST Rate', 'CGST Amount',
+        'SGST Rate', 'SGST Amount', 'IGST Rate', 'IGST Amount', 'Tax Amount',
+        'Grand Total', 'Items (JSON)', 'Saved By', 'Timestamp'
+      ]);
+    } else if (name === SHEET_CHALLANS) {
+      sheet.appendRow([
+        'Challan No', 'Date', 'Ref Invoice No', 'Buyer Name', 'Buyer Phone', 'Buyer Email',
+        'Buyer Address', 'Buyer GSTIN', 'Items (JSON)', 'Saved By', 'Timestamp'
+      ]);
+    } else if (name === SHEET_BUYERS) {
+      sheet.appendRow([
+        'Name', 'Address', 'GSTIN', 'State', 'State Code', 'Phone', 'Email', 'Saved By', 'Timestamp'
+      ]);
+    }
+    sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight('bold').setBackground('#f1f5f9');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// ── GET ROUTER ───────────────────────────────────────────────────────────────
+
+function doGet(e) {
+  const p      = e.parameter || {};
+  const action = p.action || '';
+  const secret = p.secret || '';
+  const token  = p.token  || '';
+
+  try {
+    // checkLogin only needs secret (no session yet)
+    if (action === 'checkLogin') {
+      if (!validateSecret(secret)) return jsonOut({ success: false, message: 'Unauthorized Request' });
+      return handleLogin(p.username || '', p.password || '');
+    }
+
+    // All other GET actions require a valid session token
+    const session = validateSession(token);
+    if (!session) return jsonOut({ success: false, message: 'Session expired. Please log in again.', sessionExpired: true });
+
+    if (action === 'getNextChallanNo')  return handleGetNextChallanNo();
+    if (action === 'getChallanNos')     return handleGetChallanNos();
+    if (action === 'getChallansData')   return handleGetChallansData();
+    if (action === 'getInvoiceNos')     return handleGetInvoiceNos();
+    if (action === 'getInvoiceByNo')    return handleGetInvoiceByNo(p.invoiceNo || '');
+    if (action === 'getDashboard')      return handleGetDashboard();
+    if (action === 'searchBuyer')       return handleSearchBuyer(p.q || '');
+    if (action === 'getBuyers')         return handleGetBuyers();
+
+    return jsonOut({ success: false, message: 'Unknown action parameter' });
+
+  } catch (err) {
+    return jsonOut({ success: false, message: err.toString() });
+  }
+}
+
+// ── POST ROUTER ──────────────────────────────────────────────────────────────
+
+function doPost(e) {
+  try {
+    const body   = JSON.parse(e.postData.contents || '{}');
+    const action = body.action || '';
+    const secret = body.secret || '';
+    const token  = body.token  || '';
+
+    if (!validateSecret(secret)) return jsonOut({ success: false, message: 'Unauthorized Request' });
+
+    const session = validateSession(token);
+    if (!session) return jsonOut({ success: false, message: 'Session expired. Please log in again.', sessionExpired: true });
+
+    if (action === 'addInvoice')        return handleAddInvoice(body.data, session.username);
+    if (action === 'addBuyer')          return handleAddBuyer(body.data, session.username);
+    if (action === 'saveBuyer')         return handleSaveBuyer(body, session.username);
+    if (action === 'saveChallan')       return handleSaveChallan(body, session.username);
+    if (action === 'emailInvoiceReport') return handleEmailInvoiceReport(body);
+    if (action === 'emailChallanReport') return handleEmailChallanReport(body);
+
+    return jsonOut({ success: false, message: 'Unknown action parameter' });
+
+  } catch (err) {
+    return jsonOut({ success: false, message: err.toString() });
+  }
+}
+
+// ── AUTH HANDLER ─────────────────────────────────────────────────────────────
+
+function handleLogin(username, password) {
+  username = (username || '').trim().toLowerCase();
+  if (!username || !password) {
+    return jsonOut({ success: false, message: 'Username and password fields are mandatory.' });
+  }
+  const props = getProps();
+  const key   = 'USER_' + username;
+  const stored = props[key];
+  if (!stored || stored !== password) {
+    return jsonOut({ success: false, message: 'Invalid credentials provided.' });
+  }
+  const token = generateToken();
+  const sessionData = {
+    username:    username,
+    displayName: props['DISPLAY_' + username] || username.toUpperCase()
+  };
+  CacheService.getScriptCache().put(token, JSON.stringify(sessionData), SESSION_TTL_SEC);
+  return jsonOut({
+    success:     true,
+    token:       token,
+    username:    username,
+    displayName: sessionData.displayName
+  });
+}
+
+// ── CHALLAN NUMBER AUTO-INCREMENT ────────────────────────────────────────────
+//
+// Format: CH/YY-YY/NNN  e.g.  CH/26-27/001
+// Reads all existing challan numbers from the Challans sheet,
+// finds the highest sequence number, and returns next one.
+// Falls back to CH/FY/001 if sheet is empty.
+
+function handleGetNextChallanNo() {
+  try {
+    const sheet = getSheet(SHEET_CHALLANS);
+    const data  = sheet.getDataRange().getValues();
+
+    // Column A (index 0) = Challan No
+    const existingNos = data.slice(1)
+      .map(r => (r[0] || '').toString().trim())
+      .filter(v => v !== '');
+
+    // Determine current financial year suffix e.g. "26-27"
+    const now = new Date();
+    const yr  = now.getFullYear();
+    const mo  = now.getMonth() + 1; // 1-based
+    const fyStart = mo >= 4 ? yr : yr - 1;
+    const fyEnd   = fyStart + 1;
+    const fySuffix = String(fyStart).slice(-2) + '-' + String(fyEnd).slice(-2); // "26-27"
+    const prefix   = 'CH/' + fySuffix + '/';
+
+    // Find the highest sequence number for this FY
+    let maxSeq = 0;
+    existingNos.forEach(no => {
+      if (no.toUpperCase().startsWith(prefix.toUpperCase())) {
+        const parts = no.split('/');
+        const seq   = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
+      }
+    });
+
+    const nextSeq = maxSeq + 1;
+    const challanNo = prefix + String(nextSeq).padStart(3, '0');
+
+    return jsonOut({ success: true, challanNo: challanNo });
+
+  } catch (err) {
+    return jsonOut({ success: false, message: err.toString() });
+  }
+}
+
+// ── CHALLAN HANDLERS ─────────────────────────────────────────────────────────
+
+function handleGetChallanNos() {
+  const sheet = getSheet(SHEET_CHALLANS);
+  const data  = sheet.getDataRange().getValues();
+  const nos   = data.slice(1).map(r => r[0]).filter(v => v && v.toString().trim());
+  return jsonOut({ challanNos: nos });
+}
+
+function handleGetChallansData() {
+  const sheet   = getSheet(SHEET_CHALLANS);
+  const data    = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const challans = data.slice(1).map(row => {
+    const c = {};
+    headers.forEach((h, j) => c[h] = row[j]);
+    return c;
+  });
+  return jsonOut({ challans });
+}
+
+function handleSaveChallan(body, username) {
+  const sheet     = getSheet(SHEET_CHALLANS);
+  const allData   = sheet.getDataRange().getValues();
+  const challanNo = (body.challanNo || '').toString().trim();
+
+  if (!challanNo) return jsonOut({ success: false, message: 'Challan No. is required' });
+
+  const exists = allData.slice(1).some(r =>
+    (r[0] || '').toString().trim().toLowerCase() === challanNo.toLowerCase()
+  );
+  if (exists) return jsonOut({ success: false, message: 'Duplicate challan number — ' + challanNo + ' already exists' });
+
+  const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  sheet.appendRow([
+    challanNo,
+    body.date          || '',
+    body.refInvoiceNo  || '',
+    body.buyerName     || '',
+    body.buyerPhone    || '',
+    body.buyerEmail    || '',
+    body.buyerAddress  || '',
+    body.buyerGstin    || '',
+    body.itemsJson     || '[]',
+    username,
+    now
+  ]);
+
+  // ── AUTO EMAIL TRIGGER ───────────────────────────────────────────────────
+  const emailPayload = {
+    challanNo:    challanNo,
+    date:         body.date          || '',
+    refInvoiceNo: body.refInvoiceNo  || '',
+    buyerName:    body.buyerName     || '',
+    buyerPhone:   body.buyerPhone    || '',
+    buyerEmail:   body.buyerEmail    || '',
+    buyerAddress: body.buyerAddress  || '',
+    buyerGstin:   body.buyerGstin    || '',
+    items:        JSON.parse(body.itemsJson || '[]')
+  };
+
+  var emailSent    = false;
+  var emailMessage = '';
+  try {
+    var emailResult = sendChallanEmail(emailPayload);
+    emailSent    = emailResult.sent;
+    emailMessage = emailResult.message;
+  } catch (emailErr) {
+    emailMessage = emailErr.toString();
+    Logger.log('Challan email error: ' + emailMessage);
+  }
+
+  return jsonOut({ success: true, emailSent: emailSent, emailMessage: emailMessage });
+}
+
+// ── INVOICE HANDLERS ─────────────────────────────────────────────────────────
+
+function handleGetInvoiceNos() {
+  const sheet = getSheet(SHEET_INVOICES);
+  const data  = sheet.getDataRange().getValues();
+  const nos   = data.slice(1).map(r => r[0]).filter(v => v && v.toString().trim());
+  return jsonOut({ invoiceNos: nos });
+}
+
+function handleGetInvoiceByNo(invoiceNo) {
+  const sheet   = getSheet(SHEET_INVOICES);
+  const data    = sheet.getDataRange().getValues();
+  const headers = data[0];
+  for (let i = 1; i < data.length; i++) {
+    if ((data[i][0] || '').toString().trim().toLowerCase() === invoiceNo.toLowerCase()) {
+      const inv = {};
+      headers.forEach((h, j) => inv[h] = data[i][j]);
+      return jsonOut({ invoice: inv });
+    }
+  }
+  return jsonOut({ invoice: null });
+}
+
+function handleGetDashboard() {
+  const sheet   = getSheet(SHEET_INVOICES);
+  const data    = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const invoices = data.slice(1).map(row => {
+    const inv = {};
+    headers.forEach((h, j) => inv[h] = row[j]);
+    return inv;
+  });
+  return jsonOut({ invoices });
+}
+
+function handleAddInvoice(data, username) {
+  const sheet   = getSheet(SHEET_INVOICES);
+  const allData = sheet.getDataRange().getValues();
+  const exists  = allData.slice(1).some(r =>
+    (r[0] || '').toString().trim().toLowerCase() === (data.invoiceNo || '').toLowerCase()
+  );
+  if (exists) return jsonOut({ result: 'duplicate' });
+
+  const now       = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const itemsJson = JSON.stringify(data.items || []);
+
+  sheet.appendRow([
+    data.invoiceNo    || '',
+    data.date         || '',
+    data.challanNo    || '',
+    data.buyerName    || '',
+    data.buyerPhone   || '',
+    data.buyerEmail   || '',
+    data.buyerAddress || '',
+    data.buyerGstin   || '',
+    data.subTotal     || 0,
+    data.cgstRate     || 0,
+    data.cgstAmount   || 0,
+    data.sgstRate     || 0,
+    data.sgstAmount   || 0,
+    data.igstRate     || 0,
+    data.igstAmount   || 0,
+    data.taxAmount    || 0,
+    data.grandTotal   || 0,
+    itemsJson,
+    username,
+    now
+  ]);
+
+  // ── AUTO EMAIL TRIGGER ───────────────────────────────────────────────────
+  // Build a clean, explicit email payload — do NOT pass `data` directly,
+  // as `data.items` may have already been consumed/serialised above.
+  // We reconstruct all fields and parse items back from the JSON string we just made.
+  const emailPayload = {
+    invoiceNo:    data.invoiceNo    || '',
+    date:         data.date         || '',
+    challanNo:    data.challanNo    || '',
+    buyerName:    data.buyerName    || '',
+    buyerPhone:   data.buyerPhone   || '',
+    buyerEmail:   data.buyerEmail   || '',
+    buyerAddress: data.buyerAddress || '',
+    buyerGstin:   data.buyerGstin   || '',
+    buyerState:   data.buyerState   || data.state || '',
+    subTotal:     data.subTotal     || 0,
+    cgstRate:     data.cgstRate     || 0,
+    sgstRate:     data.sgstRate     || 0,
+    igstRate:     data.igstRate     || 0,
+    cgstAmount:   data.cgstAmount   || 0,
+    sgstAmount:   data.sgstAmount   || 0,
+    igstAmount:   data.igstAmount   || 0,
+    taxAmount:    data.taxAmount    || 0,
+    grandTotal:   data.grandTotal   || 0,
+    items:        JSON.parse(itemsJson)   // parse back from the string we already built
+  };
+
+  let emailSent    = false;
+  let emailMessage = '';
+  try {
+    const emailResult = sendInvoiceEmail(emailPayload);
+    emailSent    = emailResult.sent;
+    emailMessage = emailResult.message;
+  } catch (emailErr) {
+    emailMessage = emailErr.toString();
+    Logger.log('Invoice email error: ' + emailMessage);
+  }
+
+  return jsonOut({ result: 'success', emailSent: emailSent, emailMessage: emailMessage });
+}
+
+// ── BUYER HANDLERS ───────────────────────────────────────────────────────────
+
+function handleSearchBuyer(q) {
+  const sheet   = getSheet(SHEET_BUYERS);
+  const data    = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonOut({ buyers: [] });
+  const headers = data[0];
+  const ql      = q.toLowerCase();
+  const buyers  = data.slice(1)
+    .filter(r => (r[0] || '').toString().toLowerCase().includes(ql))
+    .map(row => {
+      const b = {};
+      headers.forEach((h, j) => b[h] = row[j]);
+      return b;
+    });
+  return jsonOut({ buyers });
+}
+
+function handleGetBuyers() {
+  const sheet   = getSheet(SHEET_BUYERS);
+  const data    = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonOut({ buyers: [] });
+  const headers = data[0];
+  const buyers  = data.slice(1).map(row => {
+    const b = {};
+    headers.forEach((h, j) => b[h] = row[j]);
+    return b;
+  });
+  return jsonOut({ buyers });
+}
+
+function handleAddBuyer(data, username) {
+  const sheet   = getSheet(SHEET_BUYERS);
+  const allData = sheet.getDataRange().getValues();
+  const nameLC  = (data.name || '').toLowerCase();
+  const rowIdx  = allData.slice(1).findIndex(r => (r[0] || '').toString().toLowerCase() === nameLC);
+  const now     = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  const row = [
+    data.name       || '',
+    data.address    || '',
+    data.gstin      || '',
+    data.state      || '',
+    data.stateCode  || '',
+    data.phone      || '',
+    data.email      || '',
+    username,
+    now
+  ];
+  if (rowIdx >= 0) {
+    sheet.getRange(rowIdx + 2, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+  return jsonOut({ result: 'success' });
+}
+
+function handleSaveBuyer(body, username) {
+  return handleAddBuyer({
+    name:      body.name      || '',
+    address:   body.address   || '',
+    gstin:     body.gstin     || '',
+    state:     body.state     || '',
+    stateCode: body.stateCode || '',
+    phone:     body.phone     || '',
+    email:     body.email     || ''
+  }, username);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO EMAIL — INVOICE PDF SENDER
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Fires automatically after every successful invoice save.
+// Builds a self-contained inline-CSS HTML invoice, converts it to PDF
+// via Utilities.newBlob().getAs('application/pdf'), and sends it to the
+// fixed SELLER_EMAIL address (itransform007@gmail.com) via MailApp.
+//
+// No buyer email is used — the PDF goes to the seller only.
+//
+// Called by handleAddInvoice() after sheet.appendRow() succeeds.
+// Returns: { sent: true/false, message: string }
+// ─────────────────────────────────────────────────────────────────────────
+
+function sendInvoiceEmail(data) {
+  // Fixed seller email — invoice PDF always goes here
+  const SELLER_EMAIL = 'itransform007@gmail.com';
+
+  // ── Build invoice HTML ───────────────────────────────────────────────────
+  const htmlContent = buildInvoiceHtml(data);
+
+  const safeInvoiceNo = (data.invoiceNo || 'Invoice').replace(/\//g, '-');
+  const safeBuyerName = (data.buyerName || 'Buyer').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+  const pdfFileName   = safeBuyerName + ' - ' + safeInvoiceNo + '.pdf';
+
+  // ── Convert HTML → PDF via DriveApp temp file ───────────────────────────
+  // FIX: Utilities.newBlob().getAs('application/pdf') does NOT work in GAS.
+  // getAs() for PDF conversion only works on DriveApp File objects.
+  // Correct approach: write HTML to a temp Drive file, export as PDF, then trash it.
+  var tempFile = null;
+  var pdfBlob;
+  try {
+    tempFile = DriveApp.createFile(
+      Utilities.newBlob(htmlContent, 'text/html', 'temp_invoice.html')
+    );
+    pdfBlob = tempFile.getAs('application/pdf');
+    pdfBlob.setName(pdfFileName);
+  } finally {
+    if (tempFile) {
+      try { tempFile.setTrashed(true); } catch(e) { Logger.log('Temp file cleanup: ' + e); }
+    }
+  }
+
+  // ── Format email subject & body ─────────────────────────────────────────
+  const subject = 'New Invoice Saved: ' + (data.invoiceNo || '') + ' | ' + (data.buyerName || 'Unknown Buyer');
+
+  const rawDate = gasDateToYMD(data.date);
+  const fmtDate = rawDate ? rawDate.split('-').reverse().join('-') : '-';
+
+  const grandTotalFormatted = 'Rs.' + parseFloat(data.grandTotal || 0).toFixed(2);
+
+  const emailBody =
+    'A new invoice has been saved to Google Sheets.\n\n' +
+    'Invoice Details:\n' +
+    '  Invoice No. : ' + (data.invoiceNo || '-') + '\n' +
+    '  Date        : ' + fmtDate + '\n' +
+    '  Buyer Name  : ' + (data.buyerName || '-') + '\n' +
+    '  Buyer GSTIN : ' + (data.buyerGstin || 'Unregistered') + '\n' +
+    '  Grand Total : ' + grandTotalFormatted + '\n' +
+    (data.challanNo ? '  Challan No. : ' + data.challanNo + '\n' : '') +
+    '\nPlease find the invoice PDF attached.\n\n' +
+    '-- G.M. Enterprises Invoice System';
+
+  // ── Send email to seller ────────────────────────────────────────────────
+  MailApp.sendEmail(SELLER_EMAIL, subject, emailBody, {
+    name:        'G.M. Enterprises — Invoice System',
+    attachments: [pdfBlob]
+  });
+
+  Logger.log('Invoice email sent to seller ' + SELLER_EMAIL + ' for ' + (data.invoiceNo || ''));
+  return { sent: true, message: 'Email sent to ' + SELLER_EMAIL };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BUILD INVOICE HTML  (self-contained inline-CSS — same Tally layout)
+// ─────────────────────────────────────────────────────────────────────────
+
+function buildInvoiceHtml(data) {
+  const items    = data.items    || [];
+  const cgstRate = parseFloat(data.cgstRate  || 0);
+  const sgstRate = parseFloat(data.sgstRate  || 0);
+  const igstRate = parseFloat(data.igstRate  || 0);
+  const subTotal = parseFloat(data.subTotal  || 0);
+  const cgstAmt  = parseFloat(data.cgstAmount || subTotal * cgstRate / 100);
+  const sgstAmt  = parseFloat(data.sgstAmount || subTotal * sgstRate / 100);
+  const igstAmt  = parseFloat(data.igstAmount || subTotal * igstRate / 100);
+  const grandTotal = parseFloat(data.grandTotal || (subTotal + cgstAmt + sgstAmt + igstAmt));
+  const isIGST   = igstAmt > 0;
+
+  const rawDate  = gasDateToYMD(data.date);
+  const fmtDate  = rawDate ? rawDate.split('-').reverse().join('-') : '-';
+
+  // ── Item rows ────────────────────────────────────────────────────────────
+  let itemRowsHtml = '';
+  items.forEach(function(item, idx) {
+    const amt  = parseFloat(item.amount || 0).toFixed(2);
+    const rate = parseFloat(item.rate   || 0).toFixed(2);
+    itemRowsHtml +=
+      '<tr style="height:22px;">' +
+        '<td style="border-right:1px solid #000;text-align:center;">' + (idx + 1) + '</td>' +
+        '<td style="border-right:1px solid #000;padding:2px 5px;"><strong>' + (item.desc || '') + '</strong></td>' +
+        '<td style="border-right:1px solid #000;text-align:center;font-family:monospace;">' + (item.hsn || '') + '</td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;font-family:monospace;"><strong>' + item.qty + '</strong></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;font-family:monospace;">' + rate + '</td>' +
+        '<td style="border-right:1px solid #000;text-align:center;">Nos</td>' +
+        '<td style="text-align:right;padding-right:4px;font-family:monospace;"><strong>' + amt + '</strong></td>' +
+      '</tr>';
+  });
+
+  // ── Tax rows ─────────────────────────────────────────────────────────────
+  let taxRowsHtml = '';
+  if (cgstAmt > 0) {
+    taxRowsHtml +=
+      '<tr style="height:22px;">' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;font-style:italic;">CGST</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;">' + cgstRate + '%</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="text-align:right;padding-right:4px;font-family:monospace;">' + cgstAmt.toFixed(2) + '</td>' +
+      '</tr>' +
+      '<tr style="height:22px;">' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;font-style:italic;">SGST</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;">' + sgstRate + '%</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="text-align:right;padding-right:4px;font-family:monospace;">' + sgstAmt.toFixed(2) + '</td>' +
+      '</tr>';
+  } else if (igstAmt > 0) {
+    taxRowsHtml +=
+      '<tr style="height:22px;">' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;font-style:italic;">IGST</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;">' + igstRate + '%</td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="text-align:right;padding-right:4px;font-family:monospace;">' + igstAmt.toFixed(2) + '</td>' +
+      '</tr>';
+  }
+
+  // ── Blank filler rows ────────────────────────────────────────────────────
+  const filledRows = items.length + (cgstAmt > 0 ? 2 : igstAmt > 0 ? 1 : 0);
+  const blankCount = Math.max(0, 18 - filledRows);
+  let blankRowsHtml = '';
+  for (var i = 0; i < blankCount; i++) {
+    blankRowsHtml +=
+      '<tr style="height:26px;">' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td></td>' +
+      '</tr>';
+  }
+
+  // ── Amount in words (GAS-safe version) ──────────────────────────────────
+  const amountInWords = numberToWordsGas(Math.round(grandTotal));
+
+  // ── Assemble full HTML ───────────────────────────────────────────────────
+  return '<!DOCTYPE html>' +
+  '<html><head><meta charset="UTF-8">' +
+  '<style>' +
+    '@page { size: A4 portrait; margin: 0; }' +
+    'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; line-height: 1.3; background: #fff; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+    '.pc { width: 210mm; margin: 0 auto; padding: 5mm; box-sizing: border-box; background: #fff; }' +
+    '.main-box { border: 2px solid #000; border-collapse: collapse; width: 100%; margin-top: 2px; }' +
+    '.main-box td { vertical-align: top; padding: 4px; }' +
+    '.inner-grid { width:100%; border-collapse:collapse; height:100%; }' +
+    '.inner-grid td { vertical-align:top; padding:3px 5px; }' +
+    '.b-right  { border-right:  1px solid #000; }' +
+    '.b-bottom { border-bottom: 1px solid #000; }' +
+    '.b-top    { border-top:    1px solid #000; }' +
+    '.items-grid { width:100%; border-collapse:collapse; }' +
+    '.items-grid th { font-weight:bold; font-size:10px; border-bottom:1px solid #000; border-right:1px solid #000; padding:5px; background:#fff; text-transform:uppercase; }' +
+    '.items-grid td { padding:3px 5px; font-size:11px; border-right:1px solid #000; }' +
+    '.items-grid th:last-child, .items-grid td:last-child { border-right:none; }' +
+    '.tr { text-align:right; } .tc { text-align:center; } .bold { font-weight:bold; }' +
+  '</style></head><body>' +
+  '<div class="pc">' +
+    '<div style="text-align:center;font-weight:bold;text-transform:uppercase;font-size:14px;letter-spacing:0.5px;margin-bottom:3px;">TAX INVOICE</div>' +
+    '<table class="main-box" cellpadding="0" cellspacing="0">' +
+
+      // ROW 1 — Company + Invoice Meta
+      '<tr class="b-bottom" style="height:75px;">' +
+        '<td width="50%" class="b-right">' +
+          '<div class="bold" style="font-size:12px;">G.M.ENTERPRISES</div>' +
+          '<div style="margin-top:3px;">Byculla(W)</div>' +
+          '<div style="margin-top:3px;"><span class="bold">Ph:</span> +91 00000 00000 &nbsp;|&nbsp; <span class="bold">Email:</span> info@gmenterprises.com</div>' +
+          '<div><span class="bold">Web:</span> www.gmenterprises.com</div>' +
+          '<div style="margin-top:3px;">GSTIN/UIN: <strong>27AAAAA00000001</strong></div>' +
+          '<div>State Name: <strong>Maharashtra</strong>, Code: <strong>27</strong></div>' +
+        '</td>' +
+        '<td width="50%" style="padding:0;">' +
+          '<table class="inner-grid" cellpadding="0" cellspacing="0">' +
+            '<tr class="b-bottom">' +
+              '<td class="b-right" width="50%">Invoice No.<br><strong>' + (data.invoiceNo || '-') + '</strong></td>' +
+              '<td width="50%">Dated<br><strong>' + fmtDate + '</strong></td>' +
+            '</tr>' +
+            '<tr class="b-bottom">' +
+              '<td class="b-right">Delivery Note<br><strong>-</strong></td>' +
+              '<td>Mode/Terms of Payment<br><strong>-</strong></td>' +
+            '</tr>' +
+            '<tr class="b-bottom">' +
+              '<td class="b-right">Challan No.<br><strong>' + (data.challanNo || '-') + '</strong></td>' +
+              '<td>Other Reference(s)<br><strong>-</strong></td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td class="b-right">Supplier\'s Ref.<br><strong>-</strong></td>' +
+              '<td>Destination<br><strong>' + (data.buyerState || data.state || '-') + '</strong></td>' +
+            '</tr>' +
+          '</table>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 2 — Buyer
+      '<tr class="b-bottom" style="height:85px;">' +
+        '<td colspan="2">' +
+          '<div style="font-size:9px;text-transform:uppercase;color:#444;">Buyer (Bill To)</div>' +
+          '<div class="bold" style="margin-top:2px;font-size:12px;">' + (data.buyerName || '-') + '</div>' +
+          '<div style="margin-top:2px;white-space:pre-line;">' + (data.buyerAddress || '-') + '</div>' +
+          '<div style="margin-top:3px;">GSTIN/UIN: <strong>' + (data.buyerGstin || 'Unregistered') + '</strong>' +
+            '&nbsp;&nbsp; State: <strong>' + (data.buyerState || data.state || 'Maharashtra') + '</strong>' +
+          '</div>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 3 — Items table
+      '<tr><td colspan="2" style="padding:0;">' +
+        '<table class="items-grid">' +
+          '<thead><tr>' +
+            '<th width="6%" class="tc">Sl</th>' +
+            '<th width="44%" style="text-align:left;">Description of Goods</th>' +
+            '<th width="11%" class="tc">HSN/SAC</th>' +
+            '<th width="10%" class="tr">Quantity</th>' +
+            '<th width="10%" class="tr">Rate</th>' +
+            '<th width="7%"  class="tc">per</th>' +
+            '<th width="12%" class="tr" style="border-right:none;">Amount</th>' +
+          '</tr></thead>' +
+          '<tbody>' +
+            itemRowsHtml +
+            taxRowsHtml +
+            blankRowsHtml +
+          '</tbody>' +
+          '<tfoot>' +
+            '<tr style="border-top:1px solid #000;font-weight:bold;height:24px;">' +
+              '<td style="border-right:1px solid #000;"></td>' +
+              '<td style="border-right:1px solid #000;text-align:right;padding-right:4px;">Total</td>' +
+              '<td style="border-right:1px solid #000;"></td>' +
+              '<td style="border-right:1px solid #000;"></td>' +
+              '<td style="border-right:1px solid #000;"></td>' +
+              '<td style="border-right:1px solid #000;"></td>' +
+              '<td style="text-align:right;padding-right:4px;font-size:12px;">&#x20B9;' + grandTotal.toFixed(2) + '</td>' +
+            '</tr>' +
+          '</tfoot>' +
+        '</table>' +
+      '</td></tr>' +
+
+      // ROW 4 — Amount in words
+      '<tr class="b-top b-bottom">' +
+        '<td colspan="2" style="padding:6px;">' +
+          '<div>Amount Chargeable (in words):</div>' +
+          '<div class="bold" style="font-size:11px;margin-top:2px;">INR ' + amountInWords + '</div>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 6 — Bank + Signature
+      '<tr><td colspan="2" style="padding:0;">' +
+        '<table width="100%" style="border-collapse:collapse;" cellpadding="0" cellspacing="0">' +
+          '<tr>' +
+            '<td width="55%" class="b-right" style="font-size:10px;padding:6px;vertical-align:top;">' +
+              '<div class="bold">Company\'s Bank Details:</div>' +
+              '<div>Bank Name: <strong>State Bank of India</strong></div>' +
+              '<div>A/c No: <strong>123456789012</strong></div>' +
+              '<div>Branch &amp; IFSC: <strong>SBIN0001234</strong></div>' +
+              '<div>UPI ID: <strong>gmenterprises@sbi</strong></div>' +
+              '<div class="bold" style="margin-top:8px;font-size:9px;">Declaration:</div>' +
+              '<div style="font-size:9px;color:#222;text-align:justify;">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct. Goods once sold will not be taken back or exchanged.</div>' +
+            '</td>' +
+            '<td width="45%" style="padding:6px;vertical-align:bottom;text-align:right;">' +
+              '<div style="font-size:10px;">For <strong>G.M.ENTERPRISES</strong></div>' +
+              '<div style="font-weight:bold;text-transform:uppercase;font-size:10px;border-top:1px dashed #000;padding-top:4px;width:160px;text-align:center;margin-left:auto;margin-top:55px;">Authorised Signatory</div>' +
+            '</td>' +
+          '</tr>' +
+        '</table>' +
+      '</td></tr>' +
+
+    '</table>' +
+    '<div style="text-align:center;font-size:9px;margin-top:4px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">SUBJECT TO MAHARASHTRA JURISDICTION</div>' +
+    '<div style="text-align:center;font-size:9px;color:#555;margin-top:2px;">This is a Computer Generated Invoice</div>' +
+  '</div>' +
+  '</body></html>';
+}
+
+// ── Number to Words (GAS-compatible, no arrow functions) ─────────────────────
+
+function numberToWordsGas(price) {
+  const sglDigit  = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine'];
+  const dblDigit  = ['Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tensPlace = ['','Ten','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+  if (!price || price === 0) return 'Zero Only';
+  if (price.toString().length > 9) return 'Amount too large';
+
+  const numString   = price.toString().padStart(9, '0');
+  const crores      = parseInt(numString.substring(0, 2), 10);
+  const lakhs       = parseInt(numString.substring(2, 4), 10);
+  const thousands   = parseInt(numString.substring(4, 6), 10);
+  const hundreds    = parseInt(numString.substring(6, 7), 10);
+  const tensAndOnes = parseInt(numString.substring(7, 9), 10);
+
+  var words = '';
+
+  function proc(num, suffix) {
+    if (num <= 0) return;
+    if (num < 10) {
+      words += sglDigit[num] + ' ' + suffix + ' ';
+    } else if (num < 20) {
+      words += dblDigit[num - 10] + ' ' + suffix + ' ';
+    } else {
+      words += tensPlace[Math.floor(num / 10)] + ' ';
+      if (num % 10 > 0) words += sglDigit[num % 10] + ' ';
+      words += suffix + ' ';
+    }
+  }
+
+  proc(crores,    'Crore');
+  proc(lakhs,     'Lakh');
+  proc(thousands, 'Thousand');
+  if (hundreds > 0) words += sglDigit[hundreds] + ' Hundred ';
+  if (tensAndOnes > 0) {
+    if (words !== '') words += 'and ';
+    if (tensAndOnes < 10)       words += sglDigit[tensAndOnes] + ' ';
+    else if (tensAndOnes < 20)  words += dblDigit[tensAndOnes - 10] + ' ';
+    else {
+      words += tensPlace[Math.floor(tensAndOnes / 10)] + ' ';
+      if (tensAndOnes % 10 > 0) words += sglDigit[tensAndOnes % 10] + ' ';
+    }
+  }
+  return words.trim() + ' Only';
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO EMAIL — CHALLAN PDF SENDER
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Fires automatically after every successful challan save.
+// Builds a self-contained inline-CSS HTML challan, converts it to PDF
+// via DriveApp temp file method, and sends to fixed SELLER_EMAIL via MailApp.
+//
+// Called by handleSaveChallan() after sheet.appendRow() succeeds.
+// Returns: { sent: true/false, message: string }
+// ─────────────────────────────────────────────────────────────────────────
+
+function sendChallanEmail(data) {
+  const SELLER_EMAIL = 'itransform007@gmail.com';
+
+  // ── Build challan HTML ───────────────────────────────────────────────────
+  const htmlContent = buildChallanHtml(data);
+
+  const safeChallanNo = (data.challanNo || 'Challan').replace(/\//g, '-');
+  const safeBuyerName = (data.buyerName || 'Consignee').replace(/[^a-zA-Z0-9 ]/g, '').trim();
+  const pdfFileName   = safeBuyerName + ' - ' + safeChallanNo + '.pdf';
+
+  // ── Convert HTML → PDF via DriveApp temp file ───────────────────────────
+  var tempFile = null;
+  var pdfBlob;
+  try {
+    tempFile = DriveApp.createFile(
+      Utilities.newBlob(htmlContent, 'text/html', 'temp_challan.html')
+    );
+    pdfBlob = tempFile.getAs('application/pdf');
+    pdfBlob.setName(pdfFileName);
+  } finally {
+    if (tempFile) {
+      try { tempFile.setTrashed(true); } catch(e) { Logger.log('Temp file cleanup: ' + e); }
+    }
+  }
+
+  // ── Format email subject & body ─────────────────────────────────────────
+  const subject = 'New Challan Saved: ' + (data.challanNo || '') + ' | ' + (data.buyerName || 'Unknown Consignee');
+
+  const rawDate = gasDateToYMD(data.date);
+  const fmtDate = rawDate ? rawDate.split('-').reverse().join('-') : '-';
+
+  const emailBody =
+    'A new delivery challan has been saved to Google Sheets.\n\n' +
+    'Challan Details:\n' +
+    '  Challan No.   : ' + (data.challanNo || '-') + '\n' +
+    '  Date          : ' + fmtDate + '\n' +
+    '  Consignee     : ' + (data.buyerName || '-') + '\n' +
+    '  Buyer GSTIN   : ' + (data.buyerGstin || 'Unregistered') + '\n' +
+    (data.refInvoiceNo ? '  Ref Invoice   : ' + data.refInvoiceNo + '\n' : '') +
+    '\nPlease find the delivery challan PDF attached.\n\n' +
+    '-- G.M. Enterprises Challan System';
+
+  // ── Send email to seller ────────────────────────────────────────────────
+  MailApp.sendEmail(SELLER_EMAIL, subject, emailBody, {
+    name:        'G.M. Enterprises — Challan System',
+    attachments: [pdfBlob]
+  });
+
+  Logger.log('Challan email sent to ' + SELLER_EMAIL + ' for ' + (data.challanNo || ''));
+  return { sent: true, message: 'Email sent to ' + SELLER_EMAIL };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BUILD CHALLAN HTML  (self-contained inline-CSS — matches challan print engine)
+// ─────────────────────────────────────────────────────────────────────────
+
+function buildChallanHtml(data) {
+  var items = data.items || [];
+
+  var rawDate = gasDateToYMD(data.date);
+  var fmtDate = rawDate ? rawDate.split('-').reverse().join('-') : '-';
+
+  // ── Item rows ────────────────────────────────────────────────────────────
+  var itemRowsHtml = '';
+  var totalQty = 0;
+  items.forEach(function(item, idx) {
+    var qty = (item.qty !== '' && item.qty !== undefined && item.qty !== null) ? parseFloat(item.qty) : '';
+    if (qty !== '') totalQty += qty;
+    itemRowsHtml +=
+      '<tr style="height:22px;">' +
+        '<td style="border-right:1px solid #000;text-align:center;">' + (idx + 1) + '</td>' +
+        '<td style="border-right:1px solid #000;padding:2px 5px;"><strong>' + (item.desc || '') + '</strong></td>' +
+        '<td style="border-right:1px solid #000;text-align:center;font-family:monospace;">' + (item.hsn || '') + '</td>' +
+        '<td style="text-align:right;padding-right:4px;font-family:monospace;"><strong>' + (qty !== '' ? qty : '') + '</strong></td>' +
+      '</tr>';
+  });
+
+  // ── Blank filler rows ────────────────────────────────────────────────────
+  var blankCount = Math.max(0, 26 - items.length);
+  var blankRowsHtml = '';
+  for (var i = 0; i < blankCount; i++) {
+    blankRowsHtml +=
+      '<tr style="height:26px;">' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td style="border-right:1px solid #000;"></td>' +
+        '<td></td>' +
+      '</tr>';
+  }
+
+  return '<!DOCTYPE html>' +
+  '<html><head><meta charset="UTF-8">' +
+  '<style>' +
+    '@page { size: A4 portrait; margin: 8mm; }' +
+    'body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; line-height: 1.3; background: #fff; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+    '.print-wrapper { width: 210mm; min-height: 277mm; margin: 0 auto; background: #fff; display: flex; flex-direction: column; }' +
+    '.main-box { border: 2px solid #000; border-collapse: collapse; width: 100%; margin-top: 2px; flex: 1; }' +
+    '.main-box td { vertical-align: top; padding: 4px; }' +
+    '.inner-grid { width:100%; border-collapse:collapse; height:100%; }' +
+    '.inner-grid td { vertical-align:top; padding:3px 5px; }' +
+    '.b-right  { border-right:  1px solid #000; }' +
+    '.b-bottom { border-bottom: 1px solid #000; }' +
+    '.b-top    { border-top:    1px solid #000; }' +
+    '.items-grid { width:100%; border-collapse:collapse; height:100%; }' +
+    '.items-grid th { font-weight:bold; font-size:10px; border-bottom:1px solid #000; border-right:1px solid #000; padding:5px; background:#fff; text-transform:uppercase; }' +
+    '.items-grid td { padding:3px 5px; font-size:11px; border-right:1px solid #000; }' +
+    '.items-grid th:last-child, .items-grid td:last-child { border-right:none; }' +
+    '.text-right { text-align:right; } .text-center { text-align:center; } .bold { font-weight:bold; }' +
+  '</style></head><body>' +
+  '<div class="print-wrapper">' +
+    '<div class="text-center bold" style="font-size:14px;letter-spacing:0.5px;margin-bottom:3px;text-transform:uppercase;">DELIVERY CHALLAN</div>' +
+    '<table class="main-box" cellpadding="0" cellspacing="0">' +
+
+      // ROW 1 — Company + Challan Meta
+      '<tr class="b-bottom" style="height:75px;">' +
+        '<td width="50%" class="b-right">' +
+          '<div class="bold" style="font-size:12px;">G.M.ENTERPRISES</div>' +
+          '<div style="margin-top:3px;">Byculla(W)</div>' +
+          '<div style="margin-top:3px;"><span class="bold">Ph:</span> +91 00000 00000 &nbsp;|&nbsp; <span class="bold">Email:</span> info@gmenterprises.com</div>' +
+          '<div><span class="bold">Web:</span> www.gmenterprises.com</div>' +
+          '<div style="margin-top:3px;">GSTIN/UIN: <strong>27AAAAA00000001</strong></div>' +
+          '<div>State Name: <strong>Maharashtra</strong>, Code: <strong>27</strong></div>' +
+        '</td>' +
+        '<td width="50%" style="padding:0;">' +
+          '<table class="inner-grid" cellpadding="0" cellspacing="0">' +
+            '<tr class="b-bottom">' +
+              '<td class="b-right" width="50%">Challan No.<br><strong>' + (data.challanNo || '-') + '</strong></td>' +
+              '<td width="50%">Dated<br><strong>' + fmtDate + '</strong></td>' +
+            '</tr>' +
+            '<tr class="b-bottom">' +
+              '<td class="b-right">Ref Invoice No.<br><strong>' + (data.refInvoiceNo || '-') + '</strong></td>' +
+              '<td>Mode/Terms of Payment<br><strong>-</strong></td>' +
+            '</tr>' +
+            '<tr>' +
+              '<td class="b-right">Supplier\'s Ref.<br><strong>-</strong></td>' +
+              '<td>Other Reference(s)<br><strong>-</strong></td>' +
+            '</tr>' +
+          '</table>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 2 — Consignee
+      '<tr class="b-bottom" style="height:85px;">' +
+        '<td colspan="2">' +
+          '<div style="font-size:9px;text-transform:uppercase;color:#444;">Consignee (Ship To)</div>' +
+          '<div class="bold" style="margin-top:2px;font-size:12px;">' + (data.buyerName || '-') + '</div>' +
+          '<div style="margin-top:2px;white-space:pre-line;">' + (data.buyerAddress || '-') + '</div>' +
+          '<div style="margin-top:3px;">GSTIN/UIN: <strong>' + (data.buyerGstin || 'Unregistered') + '</strong>' +
+            '&nbsp;&nbsp; State: <strong>' + (data.buyerState || 'Maharashtra') + '</strong>' +
+          '</div>' +
+          '<div style="margin-top:3px;font-size:10px;">' +
+            (data.buyerPhone ? '<span class="bold">Ph:</span> ' + data.buyerPhone : '') +
+            (data.buyerPhone && data.buyerEmail ? ' &nbsp;|&nbsp; ' : '') +
+            (data.buyerEmail ? '<span class="bold">Email:</span> ' + data.buyerEmail : '') +
+          '</div>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 3 — Items table
+      '<tr class="b-bottom" style="height:100%;">' +
+        '<td colspan="2" style="padding:0;height:100%;">' +
+          '<table class="items-grid" style="height:100%;">' +
+            '<thead><tr>' +
+              '<th width="8%"  class="text-center">Sl No.</th>' +
+              '<th width="60%" style="text-align:left;">Description of Goods</th>' +
+              '<th width="15%" class="text-center">HSN/SAC</th>' +
+              '<th width="17%" class="text-right" style="border-right:none;">Quantity</th>' +
+            '</tr></thead>' +
+            '<tbody>' +
+              itemRowsHtml +
+              blankRowsHtml +
+              '<tr style="height:100%;"><td class="b-right"></td><td class="b-right"></td><td class="b-right"></td><td></td></tr>' +
+              '<tr class="b-top" style="font-weight:bold;height:24px;">' +
+                '<td class="b-right"></td>' +
+                '<td class="b-right" style="text-align:right;padding-right:6px;">Total</td>' +
+                '<td class="b-right"></td>' +
+                '<td style="text-align:right;padding-right:6px;font-size:12px;">' + (totalQty > 0 ? totalQty : '') + '</td>' +
+              '</tr>' +
+            '</tbody>' +
+          '</table>' +
+        '</td>' +
+      '</tr>' +
+
+      // ROW 4 — Declaration + Signature
+      '<tr>' +
+        '<td colspan="2" style="padding:0;vertical-align:bottom;">' +
+          '<table width="100%" style="border-collapse:collapse;" cellpadding="0" cellspacing="0">' +
+            '<tr style="vertical-align:bottom;">' +
+              '<td width="55%" class="b-right" style="font-size:10px;padding:6px;vertical-align:top;">' +
+                '<div class="bold" style="font-size:9px;">Declaration:</div>' +
+                '<div style="font-size:9px;color:#222;text-align:justify;">We declare that this challan shows the actual quantities of the goods described and that all particulars are true and correct.</div>' +
+              '</td>' +
+              '<td width="45%" style="padding:6px;vertical-align:bottom;text-align:right;">' +
+                '<div style="font-size:10px;">For <strong>G.M.ENTERPRISES</strong></div>' +
+                '<div style="font-weight:bold;text-transform:uppercase;font-size:10px;border-top:1px dashed #000;padding-top:4px;width:160px;text-align:center;margin-left:auto;margin-top:55px;">AUTHORISED SIGNATORY</div>' +
+              '</td>' +
+            '</tr>' +
+          '</table>' +
+        '</td>' +
+      '</tr>' +
+
+    '</table>' +
+    '<div style="text-align:center;font-size:9px;margin-top:4px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">SUBJECT TO MAHARASHTRA JURISDICTION</div>' +
+    '<div style="text-align:center;font-size:9px;color:#555;margin-top:2px;">This is a Computer Generated Delivery Challan</div>' +
+  '</div>' +
+  '</body></html>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPORT EMAIL HANDLERS — triggered from reports.html Send Email button
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// handleEmailInvoiceReport(body): looks up invoice by invoiceNo from sheet,
+//   reconstructs the full data object, then calls sendInvoiceEmail().
+//
+// handleEmailChallanReport(body): looks up challan by challanNo from sheet,
+//   reconstructs the full data object, then calls sendChallanEmail().
+// ─────────────────────────────────────────────────────────────────────────
+
+function handleEmailInvoiceReport(body) {
+  var invoiceNo = (body.invoiceNo || '').toString().trim();
+  if (!invoiceNo) return jsonOut({ success: false, message: 'Invoice No. is required' });
+
+  var sheet   = getSheet(SHEET_INVOICES);
+  var allData = sheet.getDataRange().getValues();
+  var headers = allData[0];
+
+  // Find the row matching the invoice number
+  var row = null;
+  for (var i = 1; i < allData.length; i++) {
+    if ((allData[i][0] || '').toString().trim().toLowerCase() === invoiceNo.toLowerCase()) {
+      row = allData[i];
+      break;
+    }
+  }
+  if (!row) return jsonOut({ success: false, message: 'Invoice not found: ' + invoiceNo });
+
+  // Map row to column headers
+  var inv = {};
+  headers.forEach(function(h, j) { inv[h] = row[j]; });
+
+  // Reconstruct emailPayload from sheet columns
+  var itemsJson = inv['Items (JSON)'] || inv['items'] || '[]';
+  var items;
+  try { items = JSON.parse(itemsJson); } catch(e) { items = []; }
+
+  var emailPayload = {
+    invoiceNo:    inv['Invoice No']    || inv['Invoice No.'] || invoiceNo,
+    date:         inv['Date']          || '',
+    challanNo:    inv['Challan No']    || inv['Challan No.'] || '',
+    buyerName:    inv['Buyer Name']    || '',
+    buyerPhone:   inv['Buyer Phone']   || '',
+    buyerEmail:   inv['Buyer Email']   || '',
+    buyerAddress: inv['Buyer Address'] || '',
+    buyerGstin:   inv['Buyer GSTIN']   || '',
+    subTotal:     inv['Sub Total']     || 0,
+    cgstRate:     inv['CGST Rate']     || 0,
+    sgstRate:     inv['SGST Rate']     || 0,
+    igstRate:     inv['IGST Rate']     || 0,
+    cgstAmount:   inv['CGST Amount']   || 0,
+    sgstAmount:   inv['SGST Amount']   || 0,
+    igstAmount:   inv['IGST Amount']   || 0,
+    taxAmount:    inv['Tax Amount']    || 0,
+    grandTotal:   inv['Grand Total']   || 0,
+    items:        items
+  };
+
+  try {
+    var result = sendInvoiceEmail(emailPayload);
+    return jsonOut({ success: result.sent, message: result.message });
+  } catch(e) {
+    return jsonOut({ success: false, message: e.toString() });
+  }
+}
+
+function handleEmailChallanReport(body) {
+  var challanNo = (body.challanNo || '').toString().trim();
+  if (!challanNo) return jsonOut({ success: false, message: 'Challan No. is required' });
+
+  var sheet   = getSheet(SHEET_CHALLANS);
+  var allData = sheet.getDataRange().getValues();
+  var headers = allData[0];
+
+  // Find the row matching the challan number
+  var row = null;
+  for (var i = 1; i < allData.length; i++) {
+    if ((allData[i][0] || '').toString().trim().toLowerCase() === challanNo.toLowerCase()) {
+      row = allData[i];
+      break;
+    }
+  }
+  if (!row) return jsonOut({ success: false, message: 'Challan not found: ' + challanNo });
+
+  // Map row to column headers
+  var ch = {};
+  headers.forEach(function(h, j) { ch[h] = row[j]; });
+
+  // Reconstruct emailPayload from sheet columns
+  var itemsJson = ch['Items (JSON)'] || ch['items'] || '[]';
+  var items;
+  try { items = JSON.parse(itemsJson); } catch(e) { items = []; }
+
+  var emailPayload = {
+    challanNo:    ch['Challan No']    || ch['Challan No.'] || challanNo,
+    date:         ch['Date']          || '',
+    refInvoiceNo: ch['Ref Invoice No'] || ch['Ref Invoice No.'] || '',
+    buyerName:    ch['Buyer Name']    || '',
+    buyerPhone:   ch['Buyer Phone']   || '',
+    buyerEmail:   ch['Buyer Email']   || '',
+    buyerAddress: ch['Buyer Address'] || '',
+    buyerGstin:   ch['Buyer GSTIN']   || '',
+    items:        items
+  };
+
+  try {
+    var result = sendChallanEmail(emailPayload);
+    return jsonOut({ success: result.sent, message: result.message });
+  } catch(e) {
+    return jsonOut({ success: false, message: e.toString() });
+  }
+}

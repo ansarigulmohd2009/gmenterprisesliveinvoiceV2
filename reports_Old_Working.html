@@ -1146,7 +1146,7 @@
                     </tr>`;
             });
 
-            const blankCount = Math.max(0, 24 - items.length);
+            const blankCount = Math.max(0, 26 - items.length);
             let blankRowsHtml = '';
             for (let i = 0; i < blankCount; i++) {
                 blankRowsHtml += `
@@ -1549,7 +1549,7 @@
             }
 
             const filledRows = items.length + (totals.cgstAmt > 0 ? 2 : totals.igstAmt > 0 ? 1 : 0);
-            const blankCount = Math.max(0, 24 - filledRows);
+            const blankCount = Math.max(0, 20 - filledRows);
             let blankRowsHtml = '';
             for (let i = 0; i < blankCount; i++) {
                 blankRowsHtml += `
@@ -1563,6 +1563,57 @@
                         <td></td>
                     </tr>`;
             }
+
+            let hsnSummaryHtml = '';
+            const hsnMap = {};
+            items.forEach(item => {
+                const key = item.hsn || item.hsnCode || 'N/A';
+                if (!hsnMap[key]) hsnMap[key] = { taxable: 0 };
+                hsnMap[key].taxable += parseFloat(item.amount || item.itemAmounts || 0);
+            });
+            let totalTaxable = 0;
+            let totalTaxVal  = 0;
+            for (const code in hsnMap) {
+                const taxable = hsnMap[code].taxable;
+                totalTaxable += taxable;
+                if (isIGST) {
+                    const taxVal = taxable * (taxes.igst / 100);
+                    totalTaxVal += taxVal;
+                    hsnSummaryHtml += `
+                        <tr>
+                            <td style="border:1px solid #000;padding:3px;">${escHtml(code)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${taxable.toFixed(2)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${taxes.igst}%</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${taxVal.toFixed(2)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:center;" colspan="2">N/A (Interstate)</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;"><strong>${taxVal.toFixed(2)}</strong></td>
+                        </tr>`;
+                } else {
+                    const halfRate = (taxes.cgst).toFixed(1);
+                    const taxVal   = taxable * (taxes.cgst / 100);
+                    const halfVal  = taxVal;
+                    totalTaxVal   += taxVal * 2;
+                    hsnSummaryHtml += `
+                        <tr>
+                            <td style="border:1px solid #000;padding:3px;">${escHtml(code)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${taxable.toFixed(2)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${halfRate}%</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${halfVal.toFixed(2)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${halfRate}%</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;">${halfVal.toFixed(2)}</td>
+                            <td style="border:1px solid #000;padding:3px;text-align:right;"><strong>${(taxVal * 2).toFixed(2)}</strong></td>
+                        </tr>`;
+                }
+            }
+            const totalTaxDisplay = isIGST ? totalTaxVal.toFixed(2) : (totalTaxVal / 2).toFixed(2);
+            hsnSummaryHtml += `
+                <tr style="font-weight:bold;background:#f8fafc;">
+                    <td style="border:1px solid #000;padding:3px;text-align:center;">Total</td>
+                    <td style="border:1px solid #000;padding:3px;text-align:right;">${totalTaxable.toFixed(2)}</td>
+                    <td style="border:1px solid #000;padding:3px;text-align:right;" colspan="2">${totalTaxDisplay}</td>
+                    <td style="border:1px solid #000;padding:3px;text-align:right;" colspan="2">${isIGST ? '0.00' : totalTaxDisplay}</td>
+                    <td style="border:1px solid #000;padding:3px;text-align:right;">${isIGST ? totalTaxVal.toFixed(2) : totalTaxVal.toFixed(2)}</td>
+                </tr>`;
 
             const pdfName = (buyer.name || 'Invoice').replace(/[^a-zA-Z0-9 ]/g, '') + ' - ' + (meta.invoiceNo || '').replace(/\//g, '-');
 
@@ -1601,6 +1652,8 @@
                         }
                         .items-grid td { padding:3px 5px; font-size:11px; }
                         .items-grid th:last-child { border-right:none; }
+                        .tax-summary { width:100%; border-collapse:collapse; margin-top:3px; font-size:10px; }
+                        .tax-summary th, .tax-summary td { border:1px solid #000; padding:3px; }
                         .text-right  { text-align:right; }
                         .text-center { text-align:center; }
                         .bold { font-weight:bold; }
@@ -1690,6 +1743,27 @@
                                 <td colspan="2" style="padding:6px;">
                                     <div style="font-size:9px;color:#555;text-transform:uppercase;font-weight:bold;">Amount Chargeable (in words):</div>
                                     <div class="bold" style="font-size:11px;margin-top:2px;">INR ${numberToWords(totals.grandTotal)}</div>
+                                </td>
+                            </tr>
+                            <tr class="b-bottom">
+                                <td colspan="2" style="padding:6px;">
+                                    <div class="bold" style="font-size:9px;text-transform:uppercase;margin-bottom:2px;">HSN/SAC Tax Summary:</div>
+                                    <table class="tax-summary" cellpadding="0" cellspacing="0">
+                                        <thead>
+                                            <tr>
+                                                <th rowspan="2" width="16%">HSN/SAC</th>
+                                                <th rowspan="2" width="16%">Taxable Value</th>
+                                                <th colspan="2" width="22%">${isIGST ? 'IGST' : 'Central Tax (CGST)'}</th>
+                                                <th colspan="2" width="22%">${isIGST ? '-' : 'State Tax (SGST)'}</th>
+                                                <th rowspan="2" width="24%">Total Tax Amt</th>
+                                            </tr>
+                                            <tr>
+                                                <th>Rate</th><th>Amount</th><th>Rate</th><th>Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>${hsnSummaryHtml}</tbody>
+                                    </table>
+                                    <div style="margin-top:4px;font-size:10px;">Tax Amount (in words): <span class="bold">INR ${numberToWords(isIGST ? totals.igstAmt : totals.cgstAmt + totals.sgstAmt)}</span></div>
                                 </td>
                             </tr>
                             <tr>
