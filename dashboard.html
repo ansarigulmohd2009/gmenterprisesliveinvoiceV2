@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G.M. Enterprises — Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box !important; }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        body { font-family: 'Inter', sans-serif; }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        /* ── STAT CARDS ── */
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e8edf5;
+            border-radius: 16px;
+            padding: 20px 22px;
+            transition: box-shadow .2s, transform .2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            border-radius: 16px 16px 0 0;
+        }
+        .stat-card.blue::before   { background: linear-gradient(90deg,#3b82f6,#6366f1); }
+        .stat-card.emerald::before { background: linear-gradient(90deg,#10b981,#34d399); }
+        .stat-card.violet::before { background: linear-gradient(90deg,#8b5cf6,#a78bfa); }
+        .stat-card.amber::before  { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .stat-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,.07); transform: translateY(-2px); }
+
+        /* ── SIDEBAR ── */
+        #sidebar { transition: transform .25s ease; }
+
+        /* ── GLOW NUMBERS ── */
+        .big-num {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -.5px;
+            color: #0f172a;
+        }
+
+        /* ── TABLE ── */
+        .dash-table th {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: #94a3b8;
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap;
+        }
+        .dash-table td {
+            font-size: 12.5px;
+            padding: 10px 14px;
+            border-bottom: 1px solid #f8fafc;
+            color: #334155;
+            vertical-align: middle;
+        }
+        .dash-table tr:last-child td { border-bottom: none; }
+        .dash-table tr:hover td { background: #f8fafc; }
+
+        /* ── BADGE ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: .03em;
+        }
+        .badge-blue   { background:#eff6ff; color:#3b82f6; }
+        .badge-violet { background:#f5f3ff; color:#7c3aed; }
+        .badge-emerald{ background:#ecfdf5; color:#059669; }
+        .badge-amber  { background:#fffbeb; color:#d97706; }
+        .badge-slate  { background:#f8fafc; color:#475569; }
+
+        /* ── MINI SPARKLINE AREA ── */
+        .sparkline-wrap { position: relative; height: 52px; margin-top: 8px; }
+
+        /* ── CHART CARD ── */
+        .chart-card {
+            background: #fff;
+            border: 1px solid #e8edf5;
+            border-radius: 16px;
+            padding: 20px 24px;
+        }
+
+        /* ── ACTIVE NAV ── */
+        .nav-link { border-radius: 10px; transition: background .15s, color .15s; }
+        .nav-link.active { background: #1e3a5f; color: #fff !important; }
+        .nav-link:not(.active):hover { background: rgba(255,255,255,.07); }
+
+        /* ── SECTION FADE-IN ── */
+        .section-panel { animation: fadeUp .3s ease both; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── SEARCH BOX ── */
+        .search-box { outline: none; transition: border-color .15s, box-shadow .15s; }
+        .search-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+
+        /* ── LOADING SKELETON ── */
+        .skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e8edf5 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.4s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* ── TOP BUYER BARS ── */
+        .buyer-bar { height: 6px; border-radius: 3px; background: linear-gradient(90deg,#3b82f6,#6366f1); transition: width .6s ease; }
+
+        /* ── MOBILE HAMBURGER ── */
+        @media (max-width: 1024px) {
+            #sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 200; transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
+            #sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; }
+            #sidebar-backdrop.visible { display: block; }
+        }
+
+        .print-hidden { }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased h-screen flex overflow-hidden">
+
+    <!-- ══════════════════════════════════════════════════════ LOGIN OVERLAY -->
+    <div id="login-overlay" class="fixed inset-0 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 flex items-center justify-center">
+        <div class="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none"></div>
+        <div class="bg-white rounded-2xl p-10 w-full max-w-sm shadow-[0_30px_60px_rgba(0,0,0,0.45)] relative z-10 mx-4">
+            <div class="text-center mb-8">
+                <div class="text-4xl leading-none mb-2">🏢</div>
+                <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">G.M. Enterprises</h1>
+                <p class="text-[11px] font-semibold text-slate-400 mt-1 uppercase tracking-wider">Dashboard & Analytics</p>
+            </div>
+            <div id="login-error" class="hidden bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm font-medium mb-4"></div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Username</label>
+                    <input type="text" id="login-username" class="w-full border-2 border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 text-slate-800 font-medium" placeholder="Enter username" onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password</label>
+                    <div class="relative">
+                        <input type="password" id="login-password" class="w-full border-2 border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 text-slate-800 font-medium pr-10" placeholder="Enter password" onkeydown="if(event.key==='Enter') doLogin()" />
+                        <button type="button" onclick="togglePwd()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm">👁</button>
+                    </div>
+                </div>
+                <button id="login-btn" onclick="doLogin()" class="w-full bg-blue-700 hover:bg-blue-800 active:scale-[0.98] text-white font-bold py-2.5 rounded-lg text-sm transition-all mt-2">Sign In</button>
+            </div>
+            <p class="text-center text-[10px] text-slate-300 mt-8 font-medium">Developed by Itransform Technology</p>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════ TOAST -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- ══════════════════════════════════════════════════════ SIDEBAR BACKDROP (mobile) -->
+    <div id="sidebar-backdrop" onclick="closeSidebar()"></div>
+
+    <!-- ══════════════════════════════════════════════════════ SIDEBAR -->
+    <aside id="sidebar" class="w-60 bg-[#0f2236] text-white flex flex-col shrink-0 h-full overflow-y-auto custom-scrollbar">
+        <!-- Logo -->
+        <div class="px-5 pt-6 pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center font-extrabold text-sm shadow-lg shadow-blue-500/30">GM</div>
+                <div>
+                    <div class="font-extrabold text-sm leading-tight">G.M. Enterprises</div>
+                    <div class="text-[10px] text-blue-300 font-semibold mt-0.5 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                        <span id="sb-user">Admin</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-1">
+            <p class="text-[9.5px] font-bold uppercase tracking-widest text-slate-500 px-3 mb-2">Main</p>
+            <a href="dashboard.html" class="nav-link active flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-white">
+                <svg class="w-4 h-4 opacity-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Dashboard
+            </a>
+            <a href="index.html" class="nav-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Invoices
+            </a>
+            <a href="challan.html" class="nav-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Challans
+            </a>
+            <a href="reports.html" class="nav-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Reports
+            </a>
+
+            <p class="text-[9.5px] font-bold uppercase tracking-widest text-slate-500 px-3 mb-2 mt-5">View</p>
+            <button onclick="showSection('overview')" id="nav-overview" class="nav-link w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Overview
+            </button>
+            <button onclick="showSection('invoices')" id="nav-invoices" class="nav-link w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                Invoice List
+            </button>
+            <button onclick="showSection('challans')" id="nav-challans" class="nav-link w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Challan List
+            </button>
+            <button onclick="showSection('buyers')" id="nav-buyers" class="nav-link w-full text-left flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-300">
+                <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Buyers
+            </button>
+        </nav>
+
+        <!-- Logout -->
+        <div class="px-3 pb-5 border-t border-white/10 pt-4">
+            <button onclick="doLogout()" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- ══════════════════════════════════════════════════════ MAIN -->
+    <div id="app-workspace" class="hidden flex-1 flex flex-col overflow-hidden">
+
+        <!-- Top Bar -->
+        <header class="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <!-- Mobile hamburger -->
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div>
+                    <h1 id="page-title" class="font-bold text-base text-slate-800 leading-tight">Dashboard Overview</h1>
+                    <p class="text-[11px] text-slate-400 font-medium" id="page-subtitle">G.M. Enterprises · FY 26-27</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="loadAllData()" id="refresh-btn" title="Refresh data from Google Sheets" class="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded-lg text-xs font-bold transition-all border border-slate-200">
+                    <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.65"/></svg>
+                    Refresh
+                </button>
+                <!-- Desktop nav shortcuts -->
+                <nav class="hidden md:flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                    <a href="index.html"   class="text-slate-500 hover:text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all">Invoices</a>
+                    <a href="challan.html" class="text-slate-500 hover:text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all">Challans</a>
+                    <a href="reports.html" class="text-slate-500 hover:text-slate-900 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all">Reports</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="flex-1 overflow-y-auto custom-scrollbar bg-slate-50" id="main-content">
+
+            <!-- ─────────────── OVERVIEW ─────────────── -->
+            <section id="section-overview" class="section-panel p-5 xl:p-7 space-y-6">
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+
+                    <div class="stat-card blue">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Total Revenue</span>
+                            <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            </div>
+                        </div>
+                        <div class="big-num" id="kpi-revenue">—</div>
+                        <div class="text-[11px] text-slate-400 font-medium mt-1" id="kpi-revenue-sub">Loading…</div>
+                    </div>
+
+                    <div class="stat-card emerald">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Invoices</span>
+                            <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                        </div>
+                        <div class="big-num" id="kpi-invoices">—</div>
+                        <div class="text-[11px] text-slate-400 font-medium mt-1" id="kpi-invoices-sub">Loading…</div>
+                    </div>
+
+                    <div class="stat-card violet">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Avg Invoice</span>
+                            <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            </div>
+                        </div>
+                        <div class="big-num" id="kpi-avg">—</div>
+                        <div class="text-[11px] text-slate-400 font-medium mt-1" id="kpi-avg-sub">Loading…</div>
+                    </div>
+
+                    <div class="stat-card amber">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Tax Collected</span>
+                            <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+                                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </div>
+                        </div>
+                        <div class="big-num" id="kpi-tax">—</div>
+                        <div class="text-[11px] text-slate-400 font-medium mt-1" id="kpi-tax-sub">Loading…</div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+                    <!-- Monthly Revenue Chart -->
+                    <div class="chart-card xl:col-span-2">
+                        <div class="flex items-center justify-between mb-5">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Monthly Revenue</h3>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Invoice totals by month (current FY)</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="toggleChartView('bar')" id="chart-bar-btn" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all">Bar</button>
+                                <button onclick="toggleChartView('line')" id="chart-line-btn" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 text-slate-600 transition-all">Line</button>
+                            </div>
+                        </div>
+                        <div style="height:220px; position:relative;">
+                            <canvas id="monthly-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Top Buyers -->
+                    <div class="chart-card flex flex-col">
+                        <div class="mb-4">
+                            <h3 class="font-bold text-slate-800 text-sm">Top Buyers</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">By invoice value (all time)</p>
+                        </div>
+                        <div id="top-buyers-list" class="flex-1 space-y-3.5">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Charts Row -->
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+                    <!-- GST Breakdown Donut -->
+                    <div class="chart-card flex flex-col items-center">
+                        <div class="w-full mb-4">
+                            <h3 class="font-bold text-slate-800 text-sm">GST Breakdown</h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">CGST / SGST / IGST split</p>
+                        </div>
+                        <div style="height:170px; position:relative; width:100%; max-width:220px;">
+                            <canvas id="gst-chart"></canvas>
+                        </div>
+                        <div id="gst-legend" class="flex gap-4 mt-4 flex-wrap justify-center"></div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="chart-card xl:col-span-2">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Recent Activity</h3>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Latest 8 invoices</p>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="dash-table w-full">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice No</th>
+                                        <th>Date</th>
+                                        <th>Buyer</th>
+                                        <th class="text-right">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-activity-body">
+                                    <tr><td colspan="4" class="text-center py-4 text-slate-400 text-sm">Loading…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ─────────────── INVOICE LIST ─────────────── -->
+            <section id="section-invoices" class="section-panel hidden p-5 xl:p-7">
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                        <div>
+                            <h2 class="font-bold text-slate-800">All Invoices</h2>
+                            <p class="text-xs text-slate-400 mt-0.5" id="invoice-count-label">Loading…</p>
+                        </div>
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <div class="relative flex-1 sm:flex-none">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="invoice-search" oninput="filterInvoices()" placeholder="Search invoices…" class="search-box pl-8 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-full sm:w-56 bg-slate-50" />
+                            </div>
+                            <select id="invoice-sort" onchange="filterInvoices()" class="border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 bg-white outline-none cursor-pointer">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="high">Highest Amount</option>
+                                <option value="low">Lowest Amount</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="dash-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Invoice No</th>
+                                    <th>Date</th>
+                                    <th>Buyer</th>
+                                    <th>Challan No</th>
+                                    <th class="text-right">Sub Total</th>
+                                    <th class="text-right">Tax</th>
+                                    <th class="text-right">Grand Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoice-list-body">
+                                <tr><td colspan="8" class="text-center py-6 text-slate-400">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─────────────── CHALLAN LIST ─────────────── -->
+            <section id="section-challans" class="section-panel hidden p-5 xl:p-7">
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                        <div>
+                            <h2 class="font-bold text-slate-800">All Challans</h2>
+                            <p class="text-xs text-slate-400 mt-0.5" id="challan-count-label">Loading…</p>
+                        </div>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="challan-search" oninput="filterChallans()" placeholder="Search challans…" class="search-box pl-8 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-56 bg-slate-50" />
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="dash-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Challan No</th>
+                                    <th>Date</th>
+                                    <th>Buyer</th>
+                                    <th>Ref Invoice</th>
+                                    <th>Items</th>
+                                    <th>Saved By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="challan-list-body">
+                                <tr><td colspan="7" class="text-center py-6 text-slate-400">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─────────────── BUYERS ─────────────── -->
+            <section id="section-buyers" class="section-panel hidden p-5 xl:p-7">
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                        <div>
+                            <h2 class="font-bold text-slate-800">Buyer Directory</h2>
+                            <p class="text-xs text-slate-400 mt-0.5" id="buyer-count-label">Loading…</p>
+                        </div>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="buyer-search" oninput="filterBuyers()" placeholder="Search buyers…" class="search-box pl-8 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-56 bg-slate-50" />
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="dash-table w-full">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Buyer Name</th>
+                                    <th>GSTIN</th>
+                                    <th>State</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-list-body">
+                                <tr><td colspan="7" class="text-center py-6 text-slate-400">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+    // ══════════════════════════════════════════════════════════════════
+    // CONFIG — matches index.html exactly
+    // ══════════════════════════════════════════════════════════════════
+    const googleScriptUrl = "https://script.google.com/macros/s/AKfycbxYma2QfaspdQuoWZxxOUrN3YfXuY4OAECn-G8aekTSLlSY-H6UAe-1zF0H0jVTzfyEbA/exec";
+    const API_SECRET      = "vwtbciPw@YCcqWHxi94%2";
+
+    // ══════════════════════════════════════════════════════════════════
+    // STATE
+    // ══════════════════════════════════════════════════════════════════
+    let dashData = { invoices: [], challans: [], buyers: [] };
+    let monthlyChart = null;
+    let gstChart     = null;
+    let currentSection = 'overview';
+
+    // ══════════════════════════════════════════════════════════════════
+    // AUTH
+    // ══════════════════════════════════════════════════════════════════
+    (function initAuth() {
+        const tok = sessionStorage.getItem('gme_token');
+        if (tok) {
+            showApp();
+            loadAllData();
+        }
+    })();
+
+    function togglePwd() {
+        const f = document.getElementById('login-password');
+        f.type = f.type === 'password' ? 'text' : 'password';
+    }
+
+    async function doLogin() {
+        const username = (document.getElementById('login-username').value || '').trim();
+        const password = (document.getElementById('login-password').value || '').trim();
+        const errBox   = document.getElementById('login-error');
+        const btn      = document.getElementById('login-btn');
+
+        errBox.className = 'hidden bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm font-medium mb-4';
+        if (!username || !password) {
+            errBox.textContent = 'Please enter both username and password.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+        btn.disabled = true; btn.textContent = 'Signing in…';
+        try {
+            const url  = `${googleScriptUrl}?action=checkLogin&secret=${encodeURIComponent(API_SECRET)}&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+            const res  = await fetch(url);
+            const data = await res.json();
+            if (data.success) {
+                sessionStorage.setItem('gme_token',    data.token);
+                sessionStorage.setItem('gme_username', data.username);
+                sessionStorage.setItem('gme_display',  data.displayName || data.username);
+                showApp();
+                loadAllData();
+            } else {
+                errBox.textContent = data.message || 'Invalid username or password.';
+                errBox.classList.remove('hidden');
+                document.getElementById('login-password').value = '';
+            }
+        } catch(e) {
+            errBox.textContent = 'Connection failed. Check your internet.';
+            errBox.classList.remove('hidden');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Sign In';
+        }
+    }
+
+    function doLogout() {
+        sessionStorage.clear();
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.getElementById('app-workspace').classList.add('hidden');
+        document.getElementById('app-workspace').classList.remove('flex');
+    }
+
+    function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('app-workspace').classList.remove('hidden');
+        document.getElementById('app-workspace').classList.add('flex');
+        const display = sessionStorage.getItem('gme_display') || sessionStorage.getItem('gme_username') || 'Admin';
+        document.getElementById('sb-user').textContent = display;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // SIDEBAR (mobile)
+    // ══════════════════════════════════════════════════════════════════
+    function toggleSidebar() {
+        const sb = document.getElementById('sidebar');
+        const bd = document.getElementById('sidebar-backdrop');
+        sb.classList.toggle('open');
+        bd.classList.toggle('visible');
+    }
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-backdrop').classList.remove('visible');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // SECTION NAVIGATION
+    // ══════════════════════════════════════════════════════════════════
+    const SECTIONS = ['overview','invoices','challans','buyers'];
+    const NAV_LABELS = {
+        overview: 'Dashboard Overview',
+        invoices: 'Invoice List',
+        challans: 'Challan List',
+        buyers:   'Buyer Directory'
+    };
+
+    function showSection(name) {
+        currentSection = name;
+        SECTIONS.forEach(s => {
+            document.getElementById('section-' + s).classList.toggle('hidden', s !== name);
+            const nb = document.getElementById('nav-' + s);
+            if (nb) {
+                nb.classList.toggle('active', s === name);
+                nb.classList.toggle('text-white', s === name);
+                nb.classList.toggle('text-slate-300', s !== name);
+            }
+        });
+        document.getElementById('page-title').textContent = NAV_LABELS[name] || name;
+        closeSidebar();
+
+        // Render specific sections on first visit
+        if (name === 'invoices') renderInvoiceList(dashData.invoices);
+        if (name === 'challans') renderChallanList(dashData.challans);
+        if (name === 'buyers')   renderBuyerList(dashData.buyers);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // DATA LOADING
+    // ══════════════════════════════════════════════════════════════════
+    async function loadAllData() {
+        const token = sessionStorage.getItem('gme_token') || '';
+        const btn   = document.getElementById('refresh-btn');
+        const icon  = document.getElementById('refresh-icon');
+
+        btn.disabled = true;
+        icon.classList.add('animate-spin');
+
+        try {
+            const [invRes, chRes, buyRes] = await Promise.all([
+                fetch(`${googleScriptUrl}?action=getDashboard&token=${encodeURIComponent(token)}`),
+                fetch(`${googleScriptUrl}?action=getChallansData&token=${encodeURIComponent(token)}`),
+                fetch(`${googleScriptUrl}?action=getBuyers&token=${encodeURIComponent(token)}`)
+            ]);
+
+            const invData = await invRes.json();
+            const chData  = await chRes.json();
+            const buyData = await buyRes.json();
+
+            if (invData.sessionExpired || chData.sessionExpired) { doLogout(); return; }
+
+            dashData.invoices = (invData.invoices || []).filter(r => r['Invoice No'] && r['Invoice No'].toString().trim());
+            dashData.challans = (chData.challans  || []).filter(r => r['Challan No'] && r['Challan No'].toString().trim());
+            dashData.buyers   = (buyData.buyers   || []).filter(r => r['Name'] && r['Name'].toString().trim());
+
+            renderOverview();
+            if (currentSection === 'invoices') renderInvoiceList(dashData.invoices);
+            if (currentSection === 'challans') renderChallanList(dashData.challans);
+            if (currentSection === 'buyers')   renderBuyerList(dashData.buyers);
+
+            showToast(`Data refreshed — ${dashData.invoices.length} invoices, ${dashData.challans.length} challans`, 'success');
+
+        } catch(e) {
+            showToast('Could not reach Google Sheets. Check internet connection.', 'error');
+        } finally {
+            btn.disabled = false;
+            icon.classList.remove('animate-spin');
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ══════════════════════════════════════════════════════════════════
+    function fmtCurrency(n) {
+        const num = parseFloat(n) || 0;
+        if (num >= 1e7)  return '₹' + (num/1e7).toFixed(2) + ' Cr';
+        if (num >= 1e5)  return '₹' + (num/1e5).toFixed(2) + ' L';
+        return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtCurrencyFull(n) {
+        return '₹' + (parseFloat(n)||0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDate(v) {
+        if (!v) return '—';
+        if (v instanceof Date) {
+            const d = String(v.getDate()).padStart(2,'0');
+            const m = String(v.getMonth()+1).padStart(2,'0');
+            return `${d}-${m}-${v.getFullYear()}`;
+        }
+        const s = String(v).trim();
+        if (s.match(/^\d{4}-\d{2}-\d{2}/)) {
+            const [y,mo,d] = s.split('-');
+            return `${d}-${mo}-${y}`;
+        }
+        return s;
+    }
+
+    function esc(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function getCurrentFYLabel() {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const start = m >= 3 ? y : y - 1;
+        return `${String(start).slice(-2)}-${String(start+1).slice(-2)}`;
+    }
+
+    function isCurrentFY(invNo) {
+        const fy = getCurrentFYLabel();
+        return String(invNo||'').includes(fy);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // OVERVIEW RENDER
+    // ══════════════════════════════════════════════════════════════════
+    function renderOverview() {
+        const invs = dashData.invoices;
+        const fyInvs = invs.filter(i => isCurrentFY(i['Invoice No']));
+
+        const totalRev  = fyInvs.reduce((s,i) => s + (parseFloat(i['Grand Total'])||0), 0);
+        const totalTax  = fyInvs.reduce((s,i) => s + (parseFloat(i['Tax Amount'])||0), 0);
+        const avgInv    = fyInvs.length ? totalRev / fyInvs.length : 0;
+        const allRev    = invs.reduce((s,i) => s + (parseFloat(i['Grand Total'])||0), 0);
+
+        // KPI cards
+        document.getElementById('kpi-revenue').textContent = fmtCurrency(totalRev);
+        document.getElementById('kpi-revenue-sub').textContent = `All-time: ${fmtCurrency(allRev)}`;
+        document.getElementById('kpi-invoices').textContent = fyInvs.length;
+        document.getElementById('kpi-invoices-sub').textContent = `Total (all FY): ${invs.length}`;
+        document.getElementById('kpi-avg').textContent = fmtCurrency(avgInv);
+        document.getElementById('kpi-avg-sub').textContent = `FY ${getCurrentFYLabel()} average`;
+        document.getElementById('kpi-tax').textContent = fmtCurrency(totalTax);
+        document.getElementById('kpi-tax-sub').textContent = `CGST + SGST + IGST`;
+
+        renderMonthlyChart(fyInvs);
+        renderGSTChart(fyInvs);
+        renderTopBuyers(invs);
+        renderRecentActivity(invs);
+    }
+
+    // ── Monthly Chart ─────────────────────────────────────────────────
+    const MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+
+    function getMonthlyData(fyInvs) {
+        const buckets = Array(12).fill(0);
+        fyInvs.forEach(inv => {
+            let dateStr = inv['Date'];
+            if (dateStr instanceof Date) dateStr = `${dateStr.getFullYear()}-${String(dateStr.getMonth()+1).padStart(2,'0')}-${String(dateStr.getDate()).padStart(2,'0')}`;
+            if (!dateStr) return;
+            const [y, mo] = String(dateStr).split('-').map(Number);
+            // Financial year: Apr(3)→Dec(11) → indices 0-8, Jan(0)→Mar(2) → indices 9-11
+            let idx = (mo - 4 + 12) % 12;
+            buckets[idx] += parseFloat(inv['Grand Total']) || 0;
+        });
+        return buckets;
+    }
+
+    function renderMonthlyChart(fyInvs) {
+        const data    = getMonthlyData(fyInvs);
+        const ctx     = document.getElementById('monthly-chart').getContext('2d');
+        const type    = currentChartView || 'bar';
+
+        if (monthlyChart) { monthlyChart.destroy(); monthlyChart = null; }
+
+        monthlyChart = new Chart(ctx, {
+            type: type,
+            data: {
+                labels: MONTHS,
+                datasets: [{
+                    label: 'Revenue (₹)',
+                    data: data,
+                    backgroundColor: type === 'bar'
+                        ? 'rgba(59,130,246,0.18)'
+                        : 'rgba(59,130,246,0.08)',
+                    borderColor: '#3b82f6',
+                    borderWidth: type === 'bar' ? 0 : 2.5,
+                    borderRadius: 8,
+                    pointBackgroundColor: '#3b82f6',
+                    pointRadius: 4,
+                    tension: 0.4,
+                    fill: type === 'line',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + fmtCurrencyFull(ctx.raw)
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11, weight: '600' }, color: '#94a3b8' } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: {
+                        font: { size: 10 }, color: '#94a3b8',
+                        callback: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v
+                    }, border: { display: false } }
+                }
+            }
+        });
+    }
+
+    let currentChartView = 'bar';
+    function toggleChartView(type) {
+        currentChartView = type;
+        document.getElementById('chart-bar-btn').className  = `px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${type==='bar'  ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`;
+        document.getElementById('chart-line-btn').className = `px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${type==='line' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`;
+        const fyInvs = dashData.invoices.filter(i => isCurrentFY(i['Invoice No']));
+        renderMonthlyChart(fyInvs);
+    }
+
+    // ── GST Donut ─────────────────────────────────────────────────────
+    function renderGSTChart(fyInvs) {
+        const cgst = fyInvs.reduce((s,i) => s + (parseFloat(i['CGST Amount'])||0), 0);
+        const sgst = fyInvs.reduce((s,i) => s + (parseFloat(i['SGST Amount'])||0), 0);
+        const igst = fyInvs.reduce((s,i) => s + (parseFloat(i['IGST Amount'])||0), 0);
+
+        if (gstChart) { gstChart.destroy(); gstChart = null; }
+
+        const ctx = document.getElementById('gst-chart').getContext('2d');
+        const total = cgst + sgst + igst || 1;
+
+        gstChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['CGST','SGST','IGST'],
+                datasets: [{
+                    data: [cgst, sgst, igst],
+                    backgroundColor: ['#3b82f6','#8b5cf6','#f59e0b'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.label}: ${fmtCurrencyFull(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)`
+                        }
+                    }
+                }
+            }
+        });
+
+        // Legend
+        const legend = document.getElementById('gst-legend');
+        const colors = { CGST:'#3b82f6', SGST:'#8b5cf6', IGST:'#f59e0b' };
+        legend.innerHTML = [['CGST', cgst], ['SGST', sgst], ['IGST', igst]].map(([name, val]) =>
+            `<div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <span class="w-2.5 h-2.5 rounded-full" style="background:${colors[name]}"></span>
+                ${name}: ${fmtCurrency(val)}
+            </div>`
+        ).join('');
+    }
+
+    // ── Top Buyers ────────────────────────────────────────────────────
+    function renderTopBuyers(invs) {
+        const map = {};
+        invs.forEach(inv => {
+            const name = (inv['Buyer Name'] || 'Unknown').toString().trim();
+            if (!name) return;
+            map[name] = (map[name]||0) + (parseFloat(inv['Grand Total'])||0);
+        });
+        const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,6);
+        const max    = sorted[0]?.[1] || 1;
+        const el     = document.getElementById('top-buyers-list');
+
+        if (!sorted.length) { el.innerHTML = '<p class="text-slate-400 text-sm text-center py-4">No data yet.</p>'; return; }
+
+        el.innerHTML = sorted.map(([name, val], i) => `
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-semibold text-slate-700 truncate max-w-[60%]">${esc(name)}</span>
+                    <span class="text-xs font-bold text-slate-500">${fmtCurrency(val)}</span>
+                </div>
+                <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div class="buyer-bar h-full" style="width:${Math.round((val/max)*100)}%"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // ── Recent Activity ───────────────────────────────────────────────
+    function renderRecentActivity(invs) {
+        const recent = [...invs].reverse().slice(0, 8);
+        const tbody  = document.getElementById('recent-activity-body');
+        if (!recent.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-slate-400 text-sm">No invoices yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = recent.map(inv => `
+            <tr>
+                <td><span class="badge badge-blue">${esc(inv['Invoice No'])}</span></td>
+                <td class="font-medium text-slate-600">${fmtDate(inv['Date'])}</td>
+                <td class="max-w-[140px] truncate">${esc(inv['Buyer Name'] || '—')}</td>
+                <td class="text-right font-bold text-slate-800">${fmtCurrencyFull(inv['Grand Total'])}</td>
+            </tr>
+        `).join('');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // INVOICE LIST
+    // ══════════════════════════════════════════════════════════════════
+    function renderInvoiceList(invs) {
+        const label = document.getElementById('invoice-count-label');
+        label.textContent = `${invs.length} invoice${invs.length !== 1 ? 's' : ''} total`;
+        filterInvoices();
+    }
+
+    function filterInvoices() {
+        const q    = (document.getElementById('invoice-search').value || '').toLowerCase();
+        const sort = document.getElementById('invoice-sort').value;
+        let data   = [...dashData.invoices];
+
+        if (q) data = data.filter(i =>
+            (i['Invoice No']||'').toLowerCase().includes(q) ||
+            (i['Buyer Name']||'').toLowerCase().includes(q) ||
+            (i['Challan No']||'').toLowerCase().includes(q)
+        );
+
+        if (sort === 'newest') data.reverse();
+        else if (sort === 'oldest') { /* already asc */ }
+        else if (sort === 'high') data.sort((a,b) => (parseFloat(b['Grand Total'])||0) - (parseFloat(a['Grand Total'])||0));
+        else if (sort === 'low')  data.sort((a,b) => (parseFloat(a['Grand Total'])||0) - (parseFloat(b['Grand Total'])||0));
+
+        const tbody = document.getElementById('invoice-list-body');
+        const count = document.getElementById('invoice-count-label');
+        count.textContent = `${data.length} of ${dashData.invoices.length} invoice${dashData.invoices.length !== 1 ? 's' : ''}`;
+
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">No invoices found${q ? ' for "'+q+'"' : ''}.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((inv, idx) => {
+            const subTotal   = parseFloat(inv['Sub Total']) || 0;
+            const taxAmt     = parseFloat(inv['Tax Amount']) || 0;
+            const grandTotal = parseFloat(inv['Grand Total']) || 0;
+            const fyClass    = isCurrentFY(inv['Invoice No']) ? 'badge-emerald' : 'badge-slate';
+            return `<tr>
+                <td class="text-slate-400 text-xs">${idx+1}</td>
+                <td><span class="badge ${fyClass} font-mono">${esc(inv['Invoice No'])}</span></td>
+                <td class="text-slate-600 font-medium">${fmtDate(inv['Date'])}</td>
+                <td class="font-semibold text-slate-700 max-w-[160px] truncate">${esc(inv['Buyer Name']||'—')}</td>
+                <td class="font-mono text-xs text-slate-500">${esc(inv['Challan No']||'—')}</td>
+                <td class="text-right font-mono text-slate-600">${fmtCurrencyFull(subTotal)}</td>
+                <td class="text-right font-mono text-amber-600">${fmtCurrencyFull(taxAmt)}</td>
+                <td class="text-right font-bold text-slate-800">${fmtCurrencyFull(grandTotal)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // CHALLAN LIST
+    // ══════════════════════════════════════════════════════════════════
+    function renderChallanList(challans) {
+        document.getElementById('challan-count-label').textContent = `${challans.length} challan${challans.length !== 1 ? 's' : ''} total`;
+        filterChallans();
+    }
+
+    function filterChallans() {
+        const q    = (document.getElementById('challan-search').value || '').toLowerCase();
+        let data   = [...dashData.challans].reverse();
+
+        if (q) data = data.filter(c =>
+            (c['Challan No']||'').toLowerCase().includes(q) ||
+            (c['Buyer Name']||'').toLowerCase().includes(q) ||
+            (c['Ref Invoice No']||'').toLowerCase().includes(q)
+        );
+
+        document.getElementById('challan-count-label').textContent = `${data.length} of ${dashData.challans.length} challan${dashData.challans.length !== 1 ? 's' : ''}`;
+
+        const tbody = document.getElementById('challan-list-body');
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">No challans found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((ch, idx) => {
+            let itemCount = 0;
+            try { itemCount = JSON.parse(ch['Items (JSON)'] || '[]').length; } catch(e) {}
+            return `<tr>
+                <td class="text-slate-400 text-xs">${idx+1}</td>
+                <td><span class="badge badge-violet font-mono">${esc(ch['Challan No'])}</span></td>
+                <td class="text-slate-600 font-medium">${fmtDate(ch['Date'])}</td>
+                <td class="font-semibold text-slate-700 max-w-[160px] truncate">${esc(ch['Buyer Name']||'—')}</td>
+                <td class="font-mono text-xs text-slate-500">${esc(ch['Ref Invoice No']||'—')}</td>
+                <td><span class="badge badge-slate">${itemCount} item${itemCount !== 1 ? 's' : ''}</span></td>
+                <td class="text-slate-500">${esc(ch['Saved By']||'—')}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // BUYER LIST
+    // ══════════════════════════════════════════════════════════════════
+    function renderBuyerList(buyers) {
+        document.getElementById('buyer-count-label').textContent = `${buyers.length} buyer${buyers.length !== 1 ? 's' : ''} registered`;
+        filterBuyers();
+    }
+
+    function filterBuyers() {
+        const q  = (document.getElementById('buyer-search').value || '').toLowerCase();
+        let data = [...dashData.buyers];
+
+        if (q) data = data.filter(b =>
+            (b['Name']||'').toLowerCase().includes(q) ||
+            (b['GSTIN']||'').toLowerCase().includes(q) ||
+            (b['Phone']||'').toLowerCase().includes(q)
+        );
+
+        document.getElementById('buyer-count-label').textContent = `${data.length} of ${dashData.buyers.length} buyers`;
+
+        const tbody = document.getElementById('buyer-list-body');
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">No buyers found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.map((b, idx) => `
+            <tr>
+                <td class="text-slate-400 text-xs">${idx+1}</td>
+                <td class="font-bold text-slate-800">${esc(b['Name']||'—')}</td>
+                <td class="font-mono text-xs text-slate-500">${esc(b['GSTIN']||'—')}</td>
+                <td><span class="badge badge-slate">${esc(b['State']||'—')}</span></td>
+                <td class="text-slate-600">${esc(b['Phone']||'—')}</td>
+                <td class="text-slate-600 text-xs">${esc(b['Email']||'—')}</td>
+                <td class="text-xs text-slate-400 max-w-[180px] truncate" title="${esc(b['Address']||'')}">${esc(b['Address']||'—')}</td>
+            </tr>
+        `).join('');
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // TOAST
+    // ══════════════════════════════════════════════════════════════════
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `p-4 rounded-xl flex items-center gap-3 text-white transition-all shadow-xl border border-white/10 max-w-sm transform translate-y-0 opacity-100 pointer-events-auto ${type === 'success' ? 'bg-slate-900' : 'bg-red-600'}`;
+        toast.innerHTML = type === 'success'
+            ? `<svg width="18" height="18" class="text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span class="font-semibold text-sm">${message}</span>`
+            : `<svg width="18" height="18" class="text-white shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span class="font-semibold text-sm">${message}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.classList.add('opacity-0','translate-y-[-10px]'); setTimeout(() => toast.remove(), 300); }, 5000);
+    }
+    </script>
+</body>
+</html>
