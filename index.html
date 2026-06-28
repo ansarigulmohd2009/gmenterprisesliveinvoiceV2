@@ -148,6 +148,15 @@
   .buyer-option-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
   .buyer-search-wrap { position: relative; }
 
+  /* ITEM DROPDOWN (for line item description search) */
+  .item-dropdown { position: absolute; z-index: 300; left: 0; right: 0; background: white; border: 1px solid var(--border2); border-radius: 10px; box-shadow: 0 8px 24px rgba(83,74,183,0.14); margin-top: 2px; max-height: 180px; overflow-y: auto; }
+  .item-option { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  .item-option:last-child { border-bottom: none; }
+  .item-option:hover { background: var(--accent-light); }
+  .item-option-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .item-option-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .item-desc-wrap { position: relative; }
+
   /* INV NO */
   .inv-no-row { display: flex; gap: 8px; align-items: center; }
   .inv-no-row input { flex: 1; }
@@ -444,7 +453,7 @@
       </div>
 
       <!-- Challan Items (no GST / Amount columns) -->
-      <div class="inv-card" style="overflow:hidden;">
+      <div class="inv-card" style="overflow:visible;">
         <div class="inv-card-header">
           <span class="inv-card-title">Items / Goods (No GST)</span>
           <button class="btn" style="font-size:12px;padding:5px 10px;" onclick="addChallanItem()">+ Add Item</button>
@@ -556,7 +565,7 @@
       </div>
 
       <!-- Line Items -->
-      <div class="inv-card" style="overflow:hidden;">
+      <div class="inv-card" style="overflow:visible;">
         <div class="inv-card-header">
           <span class="inv-card-title">Line Items</span>
           <button class="btn" style="font-size:12px;padding:5px 10px;" onclick="addLineItem()">+ Add Item</button>
@@ -1518,10 +1527,18 @@ function addLineItem(){
   const tr=document.createElement('tr');
   tr.id='li-'+id;
   tr.innerHTML=`
-    <td><input type="text" value="" placeholder="Description…" style="width:100%;" oninput="updateLineItem(${id},'desc',this.value)"/></td>
-    <td><input type="text" value="" placeholder="HSN" style="width:100%;" oninput="updateLineItem(${id},'hsn',this.value)"/></td>
+    <td style="position:relative;">
+      <div class="item-desc-wrap">
+        <input type="text" value="" placeholder="Type to search or enter description…" style="width:100%;" autocomplete="off"
+          oninput="updateLineItem(${id},'desc',this.value);onItemDescInput(${id},this.value,'inv');"
+          onblur="setTimeout(()=>closeItemDropdown(${id},'inv'),180)"
+          class="li-desc-${id}"/>
+        <div class="item-dropdown" id="idrop-inv-${id}" style="display:none;"></div>
+      </div>
+    </td>
+    <td><input type="text" value="" placeholder="HSN" style="width:100%;" oninput="updateLineItem(${id},'hsn',this.value)" class="li-hsn-${id}"/></td>
     <td><input type="number" value="1" min="0" style="width:100%;" oninput="updateLineItem(${id},'qty',this.value);recalcLine(${id});" class="li-qty-${id}"/></td>
-    <td><select style="width:100%;" onchange="updateLineItem(${id},'unit',this.value)"><option>Nos</option><option>Hrs</option><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option><option>Mtr</option></select></td>
+    <td><select style="width:100%;" onchange="updateLineItem(${id},'unit',this.value)" class="li-unit-${id}"><option>Nos</option><option>Hrs</option><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option><option>Mtr</option></select></td>
     <td><input type="number" value="0" min="0" step="0.01" style="width:100%;" oninput="updateLineItem(${id},'rate',this.value);recalcLine(${id});" class="li-rate-${id}"/></td>
     <td><select style="width:100%;" onchange="updateLineItem(${id},'gstPct',this.value);recalc();" class="li-gst-${id}"><option>0</option><option>5</option><option>12</option><option selected>18</option><option>28</option></select></td>
     <td style="font-weight:600;text-align:right;padding-right:10px;" class="li-amt-${id}">₹0</td>
@@ -1964,10 +1981,18 @@ function addChallanItem(){
   const tr=document.createElement('tr');
   tr.id='chi-'+id;
   tr.innerHTML=`
-    <td><input type="text" value="" placeholder="Description of goods…" style="width:100%;" oninput="updateChallanItem(${id},'desc',this.value)"/></td>
-    <td><input type="text" value="" placeholder="HSN" style="width:100%;" oninput="updateChallanItem(${id},'hsn',this.value)"/></td>
-    <td><input type="number" value="1" min="0" style="width:100%;" oninput="updateChallanItem(${id},'qty',this.value);"/></td>
-    <td><select style="width:100%;" onchange="updateChallanItem(${id},'unit',this.value)"><option>Nos</option><option>Hrs</option><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option><option>Mtr</option><option>Set</option></select></td>
+    <td style="position:relative;">
+      <div class="item-desc-wrap">
+        <input type="text" value="" placeholder="Type to search or enter description…" style="width:100%;" autocomplete="off"
+          oninput="updateChallanItem(${id},'desc',this.value);onItemDescInput(${id},this.value,'ch');"
+          onblur="setTimeout(()=>closeItemDropdown(${id},'ch'),180)"
+          class="chi-desc-${id}"/>
+        <div class="item-dropdown" id="idrop-ch-${id}" style="display:none;"></div>
+      </div>
+    </td>
+    <td><input type="text" value="" placeholder="HSN" style="width:100%;" oninput="updateChallanItem(${id},'hsn',this.value)" class="chi-hsn-${id}"/></td>
+    <td><input type="number" value="1" min="0" style="width:100%;" oninput="updateChallanItem(${id},'qty',this.value);" class="chi-qty-${id}"/></td>
+    <td><select style="width:100%;" onchange="updateChallanItem(${id},'unit',this.value)" class="chi-unit-${id}"><option>Nos</option><option>Hrs</option><option>Pcs</option><option>Kg</option><option>Ltr</option><option>Box</option><option>Mtr</option><option>Set</option></select></td>
     <td><input type="text" value="" placeholder="Remarks…" style="width:100%;" oninput="updateChallanItem(${id},'remarks',this.value)"/></td>
     <td><button class="remove-row" onclick="removeChallanItem(${id})">✕</button></td>`;
   document.getElementById('challan-items').appendChild(tr);
@@ -2339,6 +2364,93 @@ function handlePreviewChallan(){
     buyerEmail:challanState.buyer.email,
     items:cleanItems
   });
+}
+
+// ── ITEM SEARCH (for line items in Invoice & Challan) ────────────────────────
+// Searches liveItems array (already loaded on items page or fetched on demand)
+// type: 'inv' = invoice line item, 'ch' = challan item
+
+function closeItemDropdown(id, type){
+  const drop=document.getElementById('idrop-'+type+'-'+id);
+  if(drop){drop.style.display='none';drop.innerHTML='';}
+}
+
+async function ensureItemsLoaded(){
+  if(liveItems.length) return;
+  const token=sessionStorage.getItem('gme_token')||'';
+  try{
+    const res=await fetch(`${googleScriptUrl}?action=getItems&token=${encodeURIComponent(token)}`);
+    const data=await res.json();
+    if(data.sessionExpired){doLogout();return;}
+    liveItems=data.items||[];
+  }catch(e){}
+}
+
+async function onItemDescInput(id, val, type){
+  const query=(val||'').trim();
+  closeItemDropdown(id, type);
+  if(query.length<2) return;
+  await ensureItemsLoaded();
+  const ql=query.toLowerCase();
+  const matches=liveItems.filter(it=>(it['Name']||it.name||'').toLowerCase().includes(ql));
+  if(!matches.length) return;
+  const drop=document.getElementById('idrop-'+type+'-'+id);
+  if(!drop) return;
+  drop.innerHTML=matches.slice(0,8).map((it,i)=>{
+    const name=it['Name']||it.name||'';
+    const hsn=it['HSN']||it.hsn||'';
+    const rate=parseFloat(it['Rate']||it.rate||0);
+    const gst=it['GST']||it.gst||0;
+    const unit=it['Unit']||it.unit||'Nos';
+    return`<div class="item-option" data-idx="${i}" data-name="${name}" data-hsn="${hsn}" data-rate="${rate}" data-gst="${gst}" data-unit="${unit}">
+      <div class="item-option-name">${name}</div>
+      <div class="item-option-sub">HSN: ${hsn||'—'} &nbsp;·&nbsp; Rate: ₹${rate} &nbsp;·&nbsp; GST: ${gst}% &nbsp;·&nbsp; Unit: ${unit}</div>
+    </div>`;
+  }).join('');
+  drop.style.display='block';
+  drop.querySelectorAll('.item-option').forEach(el=>{
+    el.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      const name=el.dataset.name;
+      const hsn=el.dataset.hsn;
+      const rate=parseFloat(el.dataset.rate)||0;
+      const gst=el.dataset.gst;
+      const unit=el.dataset.unit;
+      if(type==='inv'){
+        populateInvItemFields(id, name, hsn, rate, gst, unit);
+      } else {
+        populateChItemFields(id, name, hsn, unit);
+      }
+      closeItemDropdown(id, type);
+      showToast(`Item "${name}" loaded`,'success');
+    });
+  });
+}
+
+function populateInvItemFields(id, name, hsn, rate, gst, unit){
+  // Update state
+  const item=invState.lineItems.find(i=>i.id===id);
+  if(item){item.desc=name;item.hsn=hsn;item.rate=rate;item.gstPct=parseFloat(gst)||18;item.unit=unit;}
+  // Update DOM
+  const descEl=document.querySelector('.li-desc-'+id); if(descEl) descEl.value=name;
+  const hsnEl=document.querySelector('.li-hsn-'+id);   if(hsnEl) hsnEl.value=hsn;
+  const rateEl=document.querySelector('.li-rate-'+id); if(rateEl) rateEl.value=rate;
+  const unitEl=document.querySelector('.li-unit-'+id);
+  if(unitEl){for(let o of unitEl.options){if(o.value===unit){o.selected=true;break;}}}
+  const gstEl=document.querySelector('.li-gst-'+id);
+  if(gstEl){for(let o of gstEl.options){if(o.value===String(gst)){o.selected=true;break;}}}
+  recalcLine(id);
+}
+
+function populateChItemFields(id, name, hsn, unit){
+  // Update state
+  const item=challanState.items.find(i=>i.id===id);
+  if(item){item.desc=name;item.hsn=hsn;item.unit=unit;}
+  // Update DOM
+  const descEl=document.querySelector('.chi-desc-'+id); if(descEl) descEl.value=name;
+  const hsnEl=document.querySelector('.chi-hsn-'+id);   if(hsnEl) hsnEl.value=hsn;
+  const unitEl=document.querySelector('.chi-unit-'+id);
+  if(unitEl){for(let o of unitEl.options){if(o.value===unit){o.selected=true;break;}}}
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
