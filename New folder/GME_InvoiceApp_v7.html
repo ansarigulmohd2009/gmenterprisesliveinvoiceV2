@@ -353,6 +353,10 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="challan-save-status" style="font-size:12px;color:var(--text3);font-weight:500;">● Unsaved</span>
+      <button class="btn" onclick="handlePreviewChallan()" style="padding:6px 14px;font-size:12px;" title="Preview PDF without saving">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Preview
+      </button>
       <button class="btn btn-success" id="challan-save-btn" onclick="handleSaveChallan()" style="padding:6px 14px;font-size:12px;font-weight:700;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save Challan
@@ -613,6 +617,10 @@
       <span style="margin-left:14px;font-size:11px;color:var(--text3);" id="bottom-words"></span>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
+      <button class="btn" onclick="handlePreviewInvoice()" style="padding:8px 16px;" title="Preview PDF without saving">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Preview
+      </button>
       <button class="btn btn-success" id="page-save-btn" onclick="handleSaveToSheets()" style="padding:8px 22px;font-size:13px;font-weight:700;letter-spacing:0.2px;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14" height="14"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save Invoice
@@ -1946,7 +1954,7 @@ function printChallanHtml(data){
   });
 
   const filledRows=items.length;
-  const blankCount=Math.max(0,24-filledRows);
+  const blankCount=Math.max(0,23-filledRows);
   let blankRowsHtml='';
   for(let i=0;i<blankCount;i++)blankRowsHtml+=`<tr style="height:28px;"><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>`;
 
@@ -1985,7 +1993,7 @@ body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;line-heigh
     <table class="inner-grid" cellpadding="0" cellspacing="0">
       <tr class="b-bottom"><td class="b-right" width="50%">Challan No.<br><strong>${data.challanNo||'-'}</strong></td><td>Dated<br><strong>${fmtD}</strong></td></tr>
       <tr class="b-bottom"><td class="b-right">Ref. Invoice No.<br><strong>${data.refInvoiceNo||'-'}</strong></td><td>Vehicle / Transport<br><strong>${data.transport||'-'}</strong></td></tr>
-      <tr><td class="b-right">Supplier's Ref.<br><strong>-</strong></td><td>Destination<br><strong>${data.buyerState||'-'}</strong></td></tr>
+      <tr class="b-bottom"><td class="b-right">Supplier's Ref.<br><strong>-</strong></td><td>Destination<br><strong>${data.buyerState||'-'}</strong></td></tr>
     </table>
   </td>
 </tr>
@@ -2060,6 +2068,38 @@ ${data.notes?`<tr class="b-top b-bottom"><td colspan="2" style="padding:6px;font
   document.body.appendChild(iframe);
   const iDoc=iframe.contentDocument||iframe.contentWindow.document;
   iDoc.open();iDoc.write(htmlContent);iDoc.close();
+}
+
+// ── PREVIEW (print without save guard) ───────────────────────────────────────
+function handlePreviewInvoice(){
+  const t=getComputedTotals();
+  printInvoiceHtml({
+    invoiceNo:invState.invoiceMeta.invoiceNo||'PREVIEW', date:invState.invoiceMeta.date, challanNo:invState.invoiceMeta.challanNo||'',
+    buyerName:invState.buyer.name||'-', buyerAddress:invState.buyer.address, buyerGstin:invState.buyer.gstin,
+    buyerState:invState.buyer.state, stateCode:invState.buyer.stateCode||'27',
+    buyerPhone:invState.buyer.phone, buyerEmail:invState.buyer.email,
+    subTotal:t.subTotal, cgstRate:invState.taxes.cgst, sgstRate:invState.taxes.sgst, igstRate:invState.taxes.igst,
+    cgstAmount:t.cgstAmt, sgstAmount:t.sgstAmt, igstAmount:t.igstAmt, grandTotal:t.grandTotal,
+    items:invState.lineItems.map(item=>({desc:item.desc||'',hsn:item.hsn||'',qty:item.qty,rate:item.rate,unit:item.unit||'Nos',amount:(parseFloat(item.qty)||0)*(parseFloat(item.rate)||0)}))
+  });
+}
+
+function handlePreviewChallan(){
+  const cleanItems=challanState.items.map(item=>({desc:item.desc||'',hsn:item.hsn||'',qty:item.qty,unit:item.unit||'Nos',remarks:item.remarks||''}));
+  printChallanHtml({
+    challanNo:document.getElementById('ch-no').value.trim()||'PREVIEW',
+    date:document.getElementById('ch-date').value,
+    refInvoiceNo:document.getElementById('ch-ref-inv').value.trim(),
+    transport:document.getElementById('ch-transport').value.trim(),
+    notes:document.getElementById('ch-notes').value.trim(),
+    buyerName:challanState.buyer.name||'-',
+    buyerAddress:challanState.buyer.address,
+    buyerGstin:challanState.buyer.gstin,
+    buyerState:challanState.buyer.state,
+    buyerPhone:challanState.buyer.phone,
+    buyerEmail:challanState.buyer.email,
+    items:cleanItems
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
