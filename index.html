@@ -723,7 +723,7 @@
 
   <!-- REPORTS PAGE -->
   <div id="page-reports" class="page page-hidden">
-    <div class="report-grid">
+    <div class="report-grid" style="grid-template-columns:repeat(4,1fr);">
       <div class="report-card" onclick="showReport('sales-register')">
         <div class="report-icon" style="background:var(--accent-light);"><svg width="20" height="20" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg></div>
         <div class="report-name">Sales Register</div>
@@ -739,10 +739,27 @@
         <div class="report-name">Customer-wise Sales</div>
         <div class="report-desc">Total invoiced grouped by each customer.</div>
       </div>
+      <div class="report-card" onclick="showReport('month-wise')">
+        <div class="report-icon" style="background:var(--success-bg);"><svg width="20" height="20" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div class="report-name">Month-wise Sales</div>
+        <div class="report-desc">Total invoiced, tax and grand total grouped by month.</div>
+      </div>
     </div>
     <div id="report-output" style="margin-top:24px;display:none;">
       <div class="card">
-        <div class="card-header"><div class="card-title" id="report-title">Report</div><div style="display:flex;gap:8px;"><button class="btn" onclick="showToast('PDF export coming soon')">Export PDF</button><button class="btn" onclick="showToast('Excel export coming soon')">Export Excel</button></div></div>
+        <div class="card-header">
+          <div class="card-title" id="report-title">Report</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" onclick="exportReportExcel()" style="color:var(--success);border-color:var(--success);">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+              Export Excel
+            </button>
+            <button class="btn" onclick="exportReportPDF()" style="color:var(--danger);border-color:var(--danger);">
+              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+              Export PDF
+            </button>
+          </div>
+        </div>
         <div id="report-body" style="padding:0;"></div>
       </div>
     </div>
@@ -1206,32 +1223,254 @@ async function saveItem(){
 }
 
 // ── REPORTS (live data) ───────────────────────────────────────────────────────
+// ── REPORTS ───────────────────────────────────────────────────────────────────
+let currentReportType = '';
+let currentReportData = { headers:[], rows:[], title:'' };
+
 function showReport(type){
+  currentReportType = type;
   document.getElementById('report-output').style.display='block';
-  const titles={'sales-register':'Sales Register','gst-summary':'GSTR-1 / Tax Summary','customer-wise':'Customer-wise Sales'};
-  document.getElementById('report-title').textContent=titles[type]||type;
+  const titles={
+    'sales-register':'Sales Register',
+    'gst-summary':'GSTR-1 / Tax Summary',
+    'customer-wise':'Customer-wise Sales',
+    'month-wise':'Month-wise Sales'
+  };
+  const title = titles[type]||type;
+  document.getElementById('report-title').textContent = title;
+  currentReportData.title = title;
+
   let html='';
   const invs=liveInvoices;
+
   if(!invs.length){
     html='<div class="empty-state" style="padding:40px;"><h3>No invoice data yet</h3><p>Invoices saved to Google Sheets will appear in reports.</p></div>';
+    currentReportData = {title, headers:[], rows:[]};
+
   }else if(type==='sales-register'){
-    html=`<table><thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Taxable</th><th>Tax</th><th>Total</th></tr></thead><tbody>
-      ${[...invs].reverse().map(i=>`<tr><td style="font-weight:600;color:var(--accent)">${i['Invoice No']||'-'}</td><td>${i['Buyer Name']||'-'}</td><td>${fmtDate(i['Date'])}</td><td>₹${parseFloat(i['Sub Total']||0).toLocaleString('en-IN')}</td><td>₹${parseFloat(i['Tax Amount']||0).toLocaleString('en-IN')}</td><td style="font-weight:600">₹${parseFloat(i['Grand Total']||0).toLocaleString('en-IN')}</td></tr>`).join('')}
-      <tr style="background:var(--accent-light);font-weight:600;"><td colspan="3">Total</td><td>₹${invs.reduce((a,i)=>a+(parseFloat(i['Sub Total'])||0),0).toLocaleString('en-IN')}</td><td>₹${invs.reduce((a,i)=>a+(parseFloat(i['Tax Amount'])||0),0).toLocaleString('en-IN')}</td><td>₹${invs.reduce((a,i)=>a+(parseFloat(i['Grand Total'])||0),0).toLocaleString('en-IN')}</td></tr>
+    const headers=['Invoice #','Customer','Date','Taxable (₹)','Tax (₹)','Total (₹)'];
+    const rows=[...invs].reverse().map(i=>[
+      i['Invoice No']||'-',
+      i['Buyer Name']||'-',
+      fmtDate(i['Date']),
+      parseFloat(i['Sub Total']||0).toFixed(2),
+      parseFloat(i['Tax Amount']||0).toFixed(2),
+      parseFloat(i['Grand Total']||0).toFixed(2)
+    ]);
+    const totSub=invs.reduce((a,i)=>a+(parseFloat(i['Sub Total'])||0),0);
+    const totTax=invs.reduce((a,i)=>a+(parseFloat(i['Tax Amount'])||0),0);
+    const totGrand=invs.reduce((a,i)=>a+(parseFloat(i['Grand Total'])||0),0);
+    rows.push(['','','TOTAL',totSub.toFixed(2),totTax.toFixed(2),totGrand.toFixed(2)]);
+    currentReportData={title,headers,rows};
+
+    html=`<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${[...rows].slice(0,-1).map(r=>`<tr>
+        <td style="font-weight:600;color:var(--accent)">${r[0]}</td>
+        <td>${r[1]}</td><td>${r[2]}</td>
+        <td>₹${parseFloat(r[3]).toLocaleString('en-IN')}</td>
+        <td>₹${parseFloat(r[4]).toLocaleString('en-IN')}</td>
+        <td style="font-weight:600">₹${parseFloat(r[5]).toLocaleString('en-IN')}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--accent-light);font-weight:700;">
+        <td colspan="3" style="text-align:right;padding-right:16px;">TOTAL</td>
+        <td>₹${totSub.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${totTax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="color:var(--accent);">₹${totGrand.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>
     </tbody></table>`;
+
   }else if(type==='gst-summary'){
-    html=`<table><thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total Tax</th></tr></thead><tbody>
-      ${[...invs].reverse().map(i=>`<tr><td style="font-weight:600;color:var(--accent)">${i['Invoice No']||'-'}</td><td>${i['Buyer Name']||'-'}</td><td>${fmtDate(i['Date'])}</td><td>₹${parseFloat(i['Sub Total']||0).toLocaleString('en-IN')}</td><td>₹${parseFloat(i['CGST Amount']||0).toLocaleString('en-IN')}</td><td>₹${parseFloat(i['SGST Amount']||0).toLocaleString('en-IN')}</td><td>₹${parseFloat(i['IGST Amount']||0).toLocaleString('en-IN')}</td><td style="font-weight:600">₹${parseFloat(i['Tax Amount']||0).toLocaleString('en-IN')}</td></tr>`).join('')}
+    const headers=['Invoice #','Customer','Date','Taxable (₹)','CGST (₹)','SGST (₹)','IGST (₹)','Total Tax (₹)'];
+    const rows=[...invs].reverse().map(i=>[
+      i['Invoice No']||'-',
+      i['Buyer Name']||'-',
+      fmtDate(i['Date']),
+      parseFloat(i['Sub Total']||0).toFixed(2),
+      parseFloat(i['CGST Amount']||0).toFixed(2),
+      parseFloat(i['SGST Amount']||0).toFixed(2),
+      parseFloat(i['IGST Amount']||0).toFixed(2),
+      parseFloat(i['Tax Amount']||0).toFixed(2)
+    ]);
+    const totSub=invs.reduce((a,i)=>a+(parseFloat(i['Sub Total'])||0),0);
+    const totCgst=invs.reduce((a,i)=>a+(parseFloat(i['CGST Amount'])||0),0);
+    const totSgst=invs.reduce((a,i)=>a+(parseFloat(i['SGST Amount'])||0),0);
+    const totIgst=invs.reduce((a,i)=>a+(parseFloat(i['IGST Amount'])||0),0);
+    const totTax=invs.reduce((a,i)=>a+(parseFloat(i['Tax Amount'])||0),0);
+    rows.push(['','','TOTAL',totSub.toFixed(2),totCgst.toFixed(2),totSgst.toFixed(2),totIgst.toFixed(2),totTax.toFixed(2)]);
+    currentReportData={title,headers,rows};
+
+    html=`<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${[...rows].slice(0,-1).map(r=>`<tr>
+        <td style="font-weight:600;color:var(--accent)">${r[0]}</td>
+        <td>${r[1]}</td><td>${r[2]}</td>
+        <td>₹${parseFloat(r[3]).toLocaleString('en-IN')}</td>
+        <td>₹${parseFloat(r[4]).toLocaleString('en-IN')}</td>
+        <td>₹${parseFloat(r[5]).toLocaleString('en-IN')}</td>
+        <td>₹${parseFloat(r[6]).toLocaleString('en-IN')}</td>
+        <td style="font-weight:600">₹${parseFloat(r[7]).toLocaleString('en-IN')}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--accent-light);font-weight:700;">
+        <td colspan="3" style="text-align:right;padding-right:16px;">TOTAL</td>
+        <td>₹${totSub.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${totCgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${totSgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${totIgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="color:var(--accent);">₹${totTax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>
     </tbody></table>`;
+
   }else if(type==='customer-wise'){
     const map={};
-    invs.forEach(i=>{const k=i['Buyer Name']||'Unknown';if(!map[k])map[k]=0;map[k]+=parseFloat(i['Grand Total']||0);});
-    html=`<table><thead><tr><th>Customer</th><th>Total Invoiced</th></tr></thead><tbody>
-      ${Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([n,a])=>`<tr><td style="font-weight:600">${n}</td><td style="font-weight:600;color:var(--accent)">₹${a.toLocaleString('en-IN')}</td></tr>`).join('')}
+    invs.forEach(i=>{
+      const k=i['Buyer Name']||'Unknown';
+      if(!map[k])map[k]={taxable:0,tax:0,total:0,count:0};
+      map[k].taxable+=parseFloat(i['Sub Total']||0);
+      map[k].tax+=parseFloat(i['Tax Amount']||0);
+      map[k].total+=parseFloat(i['Grand Total']||0);
+      map[k].count++;
+    });
+    const sorted=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
+    const headers=['Customer','Invoices','Taxable (₹)','Tax (₹)','Total (₹)'];
+    const rows=sorted.map(([n,v])=>[n,v.count,v.taxable.toFixed(2),v.tax.toFixed(2),v.total.toFixed(2)]);
+    const gtTotal=sorted.reduce((a,[,v])=>a+v.total,0);
+    const gtTax=sorted.reduce((a,[,v])=>a+v.tax,0);
+    const gtSub=sorted.reduce((a,[,v])=>a+v.taxable,0);
+    rows.push(['TOTAL',invs.length,gtSub.toFixed(2),gtTax.toFixed(2),gtTotal.toFixed(2)]);
+    currentReportData={title,headers,rows};
+
+    html=`<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${sorted.map(([n,v])=>`<tr>
+        <td style="font-weight:600">${n}</td>
+        <td style="text-align:center;">${v.count}</td>
+        <td>₹${v.taxable.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${v.tax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="font-weight:600;color:var(--accent)">₹${v.total.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--accent-light);font-weight:700;">
+        <td>TOTAL</td>
+        <td style="text-align:center;">${invs.length}</td>
+        <td>₹${gtSub.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${gtTax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="color:var(--accent);">₹${gtTotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>
+    </tbody></table>`;
+
+  }else if(type==='month-wise'){
+    const map={};
+    invs.forEach(i=>{
+      const raw=i['Date']||'';
+      let dt=new Date(raw);
+      if(isNaN(dt))dt=new Date();
+      const key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+      const label=dt.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+      if(!map[key])map[key]={label,taxable:0,tax:0,cgst:0,sgst:0,igst:0,total:0,count:0};
+      map[key].taxable+=parseFloat(i['Sub Total']||0);
+      map[key].tax+=parseFloat(i['Tax Amount']||0);
+      map[key].cgst+=parseFloat(i['CGST Amount']||0);
+      map[key].sgst+=parseFloat(i['SGST Amount']||0);
+      map[key].igst+=parseFloat(i['IGST Amount']||0);
+      map[key].total+=parseFloat(i['Grand Total']||0);
+      map[key].count++;
+    });
+    const sorted=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+    const headers=['Month','Invoices','Taxable (₹)','CGST (₹)','SGST (₹)','IGST (₹)','Total Tax (₹)','Grand Total (₹)'];
+    const rows=sorted.map(([,v])=>[v.label,v.count,v.taxable.toFixed(2),v.cgst.toFixed(2),v.sgst.toFixed(2),v.igst.toFixed(2),v.tax.toFixed(2),v.total.toFixed(2)]);
+    const gtCount=sorted.reduce((a,[,v])=>a+v.count,0);
+    const gtSub=sorted.reduce((a,[,v])=>a+v.taxable,0);
+    const gtCgst=sorted.reduce((a,[,v])=>a+v.cgst,0);
+    const gtSgst=sorted.reduce((a,[,v])=>a+v.sgst,0);
+    const gtIgst=sorted.reduce((a,[,v])=>a+v.igst,0);
+    const gtTax=sorted.reduce((a,[,v])=>a+v.tax,0);
+    const gtTotal=sorted.reduce((a,[,v])=>a+v.total,0);
+    rows.push(['TOTAL',gtCount,gtSub.toFixed(2),gtCgst.toFixed(2),gtSgst.toFixed(2),gtIgst.toFixed(2),gtTax.toFixed(2),gtTotal.toFixed(2)]);
+    currentReportData={title,headers,rows};
+
+    html=`<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${sorted.map(([,v])=>`<tr>
+        <td style="font-weight:600">${v.label}</td>
+        <td style="text-align:center;">${v.count}</td>
+        <td>₹${v.taxable.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${v.cgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${v.sgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${v.igst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${v.tax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="font-weight:600;color:var(--accent)">₹${v.total.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--accent-light);font-weight:700;">
+        <td>TOTAL</td>
+        <td style="text-align:center;">${gtCount}</td>
+        <td>₹${gtSub.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${gtCgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${gtSgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${gtIgst.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td>₹${gtTax.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+        <td style="color:var(--accent);">₹${gtTotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+      </tr>
     </tbody></table>`;
   }
+
   document.getElementById('report-body').innerHTML=html;
   document.getElementById('report-output').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── EXPORT EXCEL (CSV download) ───────────────────────────────────────────────
+function exportReportExcel(){
+  if(!currentReportData.headers.length){showToast('Please open a report first.','error');return;}
+  const {title,headers,rows}=currentReportData;
+  const escape=v=>`"${String(v).replace(/"/g,'""')}"`;
+  const lines=[headers.map(escape).join(','),...rows.map(r=>r.map(escape).join(','))];
+  const csv='\uFEFF'+lines.join('\r\n'); // BOM for Excel UTF-8
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`GME_${title.replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},300);
+  showToast('Excel file downloaded!','success');
+}
+
+// ── EXPORT PDF (print-quality A4 layout) ──────────────────────────────────────
+function exportReportPDF(){
+  if(!currentReportData.headers.length){showToast('Please open a report first.','error');return;}
+  const {title,headers,rows}=currentReportData;
+  const today=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Build table rows — last row is always the TOTAL row, style it differently
+  const dataRows=rows.slice(0,-1);
+  const totalRow=rows[rows.length-1];
+
+  const thHtml=headers.map(h=>`<th>${h}</th>`).join('');
+  const tdHtml=dataRows.map(r=>`<tr>${r.map((c,i)=>`<td style="${i===0?'font-weight:600;':''}">${c}</td>`).join('')}</tr>`).join('');
+  const totHtml=`<tr class="total-row">${totalRow.map(c=>`<td><strong>${c}</strong></td>`).join('')}</tr>`;
+
+  const htmlContent=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+@page{size:A4 landscape;margin:12mm 10mm;}
+body{font-family:Arial,sans-serif;font-size:9px;color:#000;margin:0;}
+h2{font-size:14px;margin:0 0 2px;text-transform:uppercase;letter-spacing:0.5px;}
+.meta{font-size:9px;color:#555;margin-bottom:10px;}
+table{width:100%;border-collapse:collapse;margin-top:8px;}
+th{background:#1A1A2E;color:#fff;padding:6px 8px;font-size:8px;text-transform:uppercase;letter-spacing:0.4px;text-align:left;border:1px solid #000;}
+td{padding:5px 8px;border:1px solid #ccc;font-size:9px;vertical-align:middle;}
+tr:nth-child(even) td{background:#f9f9f9;}
+.total-row td{background:#EEEDFE;font-weight:700;border-top:2px solid #534AB7;color:#000;}
+.footer{margin-top:10px;font-size:8px;color:#888;text-align:right;}
+</style></head><body>
+<h2>G.M. ENTERPRISES — ${title}</h2>
+<div class="meta">GSTIN: ${COMPANY.gstin} &nbsp;|&nbsp; ${COMPANY.address} &nbsp;|&nbsp; Generated: ${today}</div>
+<table><thead><tr>${thHtml}</tr></thead><tbody>${tdHtml}${totHtml}</tbody></table>
+<div class="footer">This is a computer-generated report. Subject to Maharashtra Jurisdiction.</div>
+</body></html>`;
+
+  const old=document.getElementById('_rpt_frame');if(old)old.parentNode.removeChild(old);
+  const iframe=document.createElement('iframe');
+  iframe.id='_rpt_frame';
+  iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:297mm;height:210mm;border:none;';
+  iframe.onload=function(){setTimeout(()=>{iframe.contentWindow.focus();iframe.contentWindow.print();},350);};
+  document.body.appendChild(iframe);
+  const iDoc=iframe.contentDocument||iframe.contentWindow.document;
+  iDoc.open();iDoc.write(htmlContent);iDoc.close();
 }
 
 // ── INVOICE NUMBER (GAS) ──────────────────────────────────────────────────────
