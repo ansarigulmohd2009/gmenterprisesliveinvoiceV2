@@ -216,6 +216,43 @@
   /* LOADING ROW */
   .loading-row { text-align: center; color: var(--text3); font-size: 13px; padding: 40px 20px !important; }
 
+  /* AMC BADGES */
+  .badge.active-amc { background: var(--success-bg); color: var(--success); }
+  .badge.expiring-soon { background: var(--warn-bg); color: var(--warn); }
+  .badge.expired-amc { background: var(--danger-bg); color: var(--danger); }
+  .badge.upcoming-amc { background: var(--info-bg); color: var(--info); }
+
+  /* AMC RENEWAL TIMELINE */
+  .amc-timeline { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 20px; }
+  .amc-timeline-card { flex-shrink: 0; min-width: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .amc-timeline-card.urgent { border-color: var(--danger); background: var(--danger-bg); }
+  .amc-timeline-card.warn { border-color: var(--warn); background: var(--warn-bg); }
+  .amc-timeline-card.ok { border-color: var(--success); background: var(--success-bg); }
+  .amc-tl-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+  .amc-tl-date { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+  .amc-tl-days { font-size: 18px; font-weight: 700; }
+  .amc-tl-days.urgent { color: var(--danger); }
+  .amc-tl-days.warn { color: var(--warn); }
+  .amc-tl-days.ok { color: var(--success); }
+  .amc-tl-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); }
+
+  /* AMC RENEWAL WIDGET ON DASHBOARD */
+  .amc-dash-section { margin-top: 20px; }
+  .amc-dash-list { display: flex; flex-direction: column; gap: 0; }
+  .amc-dash-row { display: flex; align-items: center; gap: 12px; padding: 11px 20px; border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+  .amc-dash-row:last-child { border-bottom: none; }
+  .amc-dash-row:hover { background: var(--accent-light); }
+  .amc-dash-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .amc-dash-dot.urgent { background: var(--danger); }
+  .amc-dash-dot.warn { background: var(--warn); }
+  .amc-dash-dot.ok { background: var(--success); }
+  .amc-dash-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+  .amc-dash-meta { font-size: 11px; color: var(--text3); }
+  .amc-dash-days { font-size: 12px; font-weight: 700; min-width: 60px; text-align: right; }
+  .amc-dash-days.urgent { color: var(--danger); }
+  .amc-dash-days.warn { color: var(--warn); }
+  .amc-dash-days.ok { color: var(--success); }
+
   @media (max-width: 768px) {
     .sidebar { transform: translateX(-220px); } .main { margin-left: 0; }
     .stat-grid { grid-template-columns: 1fr 1fr; }
@@ -281,6 +318,9 @@
       <button class="nav-item" onclick="navigate('quotations')">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="12" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Quotations
       </button>
+      <button class="nav-item" onclick="navigate('amc')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>AMC Contracts
+      </button>
       <button class="nav-item" onclick="navigate('payments')">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Payments
       </button>
@@ -336,6 +376,9 @@
       </button>
       <button class="btn" id="topbar-new-quot-btn" style="display:none;" onclick="openNewQuotationPage()">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Quotation
+      </button>
+      <button class="btn btn-primary" id="topbar-new-amc-btn" style="display:none;" onclick="openAddAMC()">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add AMC Contract
       </button>
     </div>
   </div>
@@ -801,6 +844,20 @@
       <div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" id="dash-outstanding">₹0</div><div class="stat-sub" id="dash-out-sub">pending</div></div>
       <div class="stat-card"><div class="stat-label">Total Invoices</div><div class="stat-value" id="dash-count">0</div><div class="stat-sub">In database</div></div>
     </div>
+    <div class="card" id="dash-amc-widget" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🔔 AMC Renewals — Upcoming & Overdue</div>
+          <div class="card-sub" id="dash-amc-subtitle">Contract renewals needing attention</div>
+        </div>
+        <button class="btn" onclick="navigate('amc')">Manage AMC</button>
+      </div>
+      <div id="dash-amc-body">
+        <div class="amc-dash-list" id="dash-amc-list">
+          <div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">Loading AMC data…</div>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Recent Invoices</div><button class="btn" onclick="navigate('invoices')">View all</button></div>
       <table><thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Amount</th><th>Tax</th></tr></thead>
@@ -842,8 +899,6 @@
     </div>
   </div>
 
-  </div>
-
   <!-- QUOTATIONS LIST PAGE -->
   <div id="page-quotations" class="page page-hidden">
     <div class="filter-bar">
@@ -858,6 +913,54 @@
     <div class="card">
       <table><thead><tr><th>Quot #</th><th>Customer</th><th>Date</th><th>Valid Until</th><th>Amount</th><th>Items</th><th></th></tr></thead>
       <tbody id="quotations-body"><tr><td colspan="7" class="loading-row">Loading from Google Sheets…</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- AMC CONTRACTS PAGE -->
+  <div id="page-amc" class="page page-hidden">
+    <!-- Renewal Summary Timeline -->
+    <div id="amc-renewal-timeline" style="display:none;margin-bottom:4px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;">⚡ Renewal Radar — Next 90 Days</div>
+      <div class="amc-timeline" id="amc-timeline-strip"></div>
+    </div>
+    <!-- Filter + Add bar -->
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" placeholder="Search AMC customers, contract no…" oninput="filterAMC(this.value)"/>
+      </div>
+      <select id="amc-filter-status" onchange="filterAMC(document.querySelector('#page-amc .search-input').value)" style="max-width:160px;">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="expiring">Expiring Soon</option>
+        <option value="expired">Expired</option>
+      </select>
+      <button class="btn btn-primary" onclick="openAddAMC()">
+        <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add AMC Contract
+      </button>
+    </div>
+    <!-- Stats row -->
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;" id="amc-stat-grid">
+      <div class="stat-card"><div class="stat-label">Total Contracts</div><div class="stat-value" id="amc-stat-total">0</div><div class="stat-sub">All AMC records</div></div>
+      <div class="stat-card" style="border-color:rgba(45,212,160,0.3);"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--success);" id="amc-stat-active">0</div><div class="stat-sub">Running contracts</div></div>
+      <div class="stat-card" style="border-color:rgba(240,160,64,0.3);"><div class="stat-label">Expiring ≤ 30 Days</div><div class="stat-value" style="color:var(--warn);" id="amc-stat-expiring">0</div><div class="stat-sub">Needs immediate action</div></div>
+      <div class="stat-card" style="border-color:rgba(240,96,96,0.3);"><div class="stat-label">Expired</div><div class="stat-value" style="color:var(--danger);" id="amc-stat-expired">0</div><div class="stat-sub">Renewal targets</div></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Contract #</th>
+          <th>Customer</th>
+          <th>Service / Product</th>
+          <th>Start Date</th>
+          <th>Expiry Date</th>
+          <th>AMC Value (₹)</th>
+          <th>Status</th>
+          <th>Days Left</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="amc-body"><tr><td colspan="9" class="loading-row">Loading AMC contracts…</td></tr></tbody>
+      </table>
     </div>
   </div>
 
@@ -976,6 +1079,74 @@
 
 </div><!-- /main -->
 </div><!-- /app -->
+
+<!-- ADD AMC MODAL -->
+<div class="modal-overlay" id="amc-modal">
+  <div class="modal" style="width:620px;">
+    <div class="modal-header">
+      <div class="modal-title" id="amc-modal-title">Add AMC Contract</div>
+      <button class="close-btn" onclick="closeModal('amc-modal')"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="amc-edit-row"/>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Contract No. <span style="color:var(--danger);">*</span></label>
+          <input type="text" id="amc-contract-no" placeholder="AMC/26-27/001"/>
+        </div>
+        <div class="form-group">
+          <label>Customer Name <span style="color:var(--danger);">*</span></label>
+          <div class="buyer-search-wrap">
+            <input type="text" id="amc-customer-name" placeholder="Type to search or enter name…" autocomplete="off"
+              oninput="onAMCCustomerSearch(this.value)" onblur="setTimeout(closeAMCBuyerDropdown,180)"/>
+            <div class="buyer-dropdown" id="amc-buyer-dropdown" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Customer Phone</label>
+          <input type="tel" id="amc-phone" placeholder="9876543210"/>
+        </div>
+        <div class="form-group">
+          <label>Customer Email</label>
+          <input type="email" id="amc-email" placeholder="customer@example.com"/>
+        </div>
+        <div class="form-group full">
+          <label>Service / Product Description <span style="color:var(--danger);">*</span></label>
+          <textarea id="amc-service" rows="2" placeholder="e.g. Annual Maintenance of CCTV System, Elevator AMC, Fire Panel Maintenance…"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Contract Start Date <span style="color:var(--danger);">*</span></label>
+          <input type="date" id="amc-start-date"/>
+        </div>
+        <div class="form-group">
+          <label>Contract Expiry Date <span style="color:var(--danger);">*</span></label>
+          <input type="date" id="amc-expiry-date"/>
+        </div>
+        <div class="form-group">
+          <label>AMC Value (₹)</label>
+          <input type="number" id="amc-value" placeholder="0" step="0.01"/>
+        </div>
+        <div class="form-group">
+          <label>Payment Frequency</label>
+          <select id="amc-freq">
+            <option value="Annual">Annual</option>
+            <option value="Half-Yearly">Half-Yearly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Notes / Remarks</label>
+          <textarea id="amc-notes" rows="2" placeholder="Any special terms, scope, or reminders…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('amc-modal')">Cancel</button>
+      <button class="btn btn-primary" id="amc-save-btn" onclick="saveAMCContract()">Save Contract</button>
+    </div>
+  </div>
+</div>
 
 <!-- ADD CUSTOMER MODAL -->
 <div class="modal-overlay" id="customer-modal">
@@ -1116,20 +1287,23 @@ function navigate(page){
   const pg=document.getElementById('page-'+page);
   if(pg) pg.classList.remove('page-hidden');
 
-  const titles={dashboard:'Dashboard',invoices:'Invoices',challans:'Challans',quotations:'Quotations',payments:'Payments',ledger:'Ledger',customers:'Customers',items:'Products & Services',reports:'Reports',settings:'Settings'};
+  const titles={dashboard:'Dashboard',invoices:'Invoices',challans:'Challans',quotations:'Quotations',amc:'AMC Contracts',payments:'Payments',ledger:'Ledger',customers:'Customers',items:'Products & Services',reports:'Reports',settings:'Settings'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
 
   // Toggle topbar action buttons
   const invBtn=document.getElementById('topbar-new-inv-btn');
   const chBtn=document.getElementById('topbar-new-challan-btn');
   const qtBtn=document.getElementById('topbar-new-quot-btn');
-  if(page==='challans'){   if(invBtn)invBtn.style.display='none'; if(chBtn)chBtn.style.display=''; if(qtBtn)qtBtn.style.display='none'; }
-  else if(page==='quotations'){ if(invBtn)invBtn.style.display='none'; if(chBtn)chBtn.style.display='none'; if(qtBtn)qtBtn.style.display=''; }
-  else { if(invBtn)invBtn.style.display=''; if(chBtn)chBtn.style.display='none'; if(qtBtn)qtBtn.style.display='none'; }
+  const amcBtn=document.getElementById('topbar-new-amc-btn');
+  if(page==='challans'){   if(invBtn)invBtn.style.display='none'; if(chBtn)chBtn.style.display=''; if(qtBtn)qtBtn.style.display='none'; if(amcBtn)amcBtn.style.display='none'; }
+  else if(page==='quotations'){ if(invBtn)invBtn.style.display='none'; if(chBtn)chBtn.style.display='none'; if(qtBtn)qtBtn.style.display=''; if(amcBtn)amcBtn.style.display='none'; }
+  else if(page==='amc'){ if(invBtn)invBtn.style.display='none'; if(chBtn)chBtn.style.display='none'; if(qtBtn)qtBtn.style.display='none'; if(amcBtn)amcBtn.style.display=''; }
+  else { if(invBtn)invBtn.style.display=''; if(chBtn)chBtn.style.display='none'; if(qtBtn)qtBtn.style.display='none'; if(amcBtn)amcBtn.style.display='none'; }
 
   if(page==='invoices')    loadAndRenderInvoices();
   if(page==='challans')    loadAndRenderChallans();
   if(page==='quotations')  loadAndRenderQuotations();
+  if(page==='amc')         loadAndRenderAMC();
   if(page==='customers')   loadAndRenderCustomers();
   if(page==='items')       loadAndRenderItems();
 }
@@ -1220,6 +1394,8 @@ async function loadDashboard(){
   }catch(e){
     document.getElementById('recent-invoices-body').innerHTML='<tr><td colspan="5" class="loading-row">Could not load data. Check connection.</td></tr>';
   }
+  // Load AMC renewal widget (local, always available)
+  loadDashboardAMC();
 }
 
 // ── INVOICES TABLE (live from GAS) ─────────────────────────────────────────────
@@ -3116,6 +3292,357 @@ async function onItemDescInput(id,val,type){
       closeItemDropdown(id,type);
       showToast(`Item "${name}" loaded`,'success');
     });
+  });
+}
+
+// ── AMC CONTRACTS MODULE ──────────────────────────────────────────────────────
+// GAS / Google Sheets backed storage (v16).
+// Read  → GET  action=getAMCData
+// Save  → POST action=saveAMCContract   { data:{...}, rowIndex: -1|idx }
+// Delete→ POST action=deleteAMCContract { contractNo }
+
+let liveAMC = [];
+
+// ── GAS helpers ───────────────────────────────────────────────────────────────
+
+function gasGetAMC(){
+  return new Promise((resolve,reject)=>{
+    const params=new URLSearchParams({action:'getAMCData',token:sessionStorage.getItem('gme_token'),secret:API_SECRET});
+    fetch(googleScriptUrl+'?'+params)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.sessionExpired){ handleSessionExpiry(); reject('session'); return; }
+        resolve(d.contracts||[]);
+      })
+      .catch(reject);
+  });
+}
+
+function gasPostAMC(action, payload){
+  return new Promise((resolve,reject)=>{
+    fetch(googleScriptUrl,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action, secret:API_SECRET, token:sessionStorage.getItem('gme_token'), ...payload})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.sessionExpired){ handleSessionExpiry(); reject('session'); return; }
+      resolve(d);
+    })
+    .catch(reject);
+  });
+}
+
+// ── Kept for compatibility (genNextAMCNo still reads liveAMC) ─────────────────
+function amcLoad(){ /* no-op in v16 — data comes from GAS */ }
+function amcSave(){ /* no-op in v16 — saved via GAS */ }
+
+function amcDaysLeft(expiryDateStr){
+  if(!expiryDateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(expiryDateStr); exp.setHours(0,0,0,0);
+  return Math.round((exp - today)/(1000*60*60*24));
+}
+
+function amcStatus(days){
+  if(days === null) return 'unknown';
+  if(days < 0) return 'expired';
+  if(days <= 30) return 'expiring';
+  return 'active';
+}
+
+function amcBadgeHtml(days){
+  const s = amcStatus(days);
+  if(s==='expired')  return`<span class="badge expired-amc">Expired</span>`;
+  if(s==='expiring') return`<span class="badge expiring-soon">Expiring Soon</span>`;
+  return`<span class="badge active-amc">Active</span>`;
+}
+
+function amcDaysHtml(days){
+  if(days===null) return '-';
+  if(days<0)  return`<span style="color:var(--danger);font-weight:700;">${Math.abs(days)}d overdue</span>`;
+  if(days<=30) return`<span style="color:var(--warn);font-weight:700;">${days}d</span>`;
+  return`<span style="color:var(--success);font-weight:700;">${days}d</span>`;
+}
+
+function loadAndRenderAMC(){
+  const tbody=document.getElementById('amc-body');
+  if(tbody) tbody.innerHTML='<tr><td colspan="9" class="loading-row">Loading AMC contracts…</td></tr>';
+  gasGetAMC().then(contracts=>{
+    liveAMC=contracts;
+    renderAMCStats();
+    renderAMCTimeline();
+    renderAMCTable(liveAMC);
+  }).catch(err=>{
+    if(err==='session') return;
+    if(tbody) tbody.innerHTML='<tr><td colspan="9" class="loading-row" style="color:var(--danger);">Failed to load AMC data. Check connection.</td></tr>';
+    showToast('Failed to load AMC data.','error');
+  });
+}
+
+function renderAMCStats(){
+  const total = liveAMC.length;
+  const active = liveAMC.filter(c=>amcStatus(amcDaysLeft(c['Expiry Date']||c.expiryDate))==='active').length;
+  const expiring = liveAMC.filter(c=>amcStatus(amcDaysLeft(c['Expiry Date']||c.expiryDate))==='expiring').length;
+  const expired = liveAMC.filter(c=>amcStatus(amcDaysLeft(c['Expiry Date']||c.expiryDate))==='expired').length;
+  document.getElementById('amc-stat-total').textContent=total;
+  document.getElementById('amc-stat-active').textContent=active;
+  document.getElementById('amc-stat-expiring').textContent=expiring;
+  document.getElementById('amc-stat-expired').textContent=expired;
+}
+
+function renderAMCTimeline(){
+  const strip = document.getElementById('amc-timeline-strip');
+  const wrapper = document.getElementById('amc-renewal-timeline');
+  const upcoming = liveAMC
+    .map(c=>({...c, days:amcDaysLeft(c['Expiry Date']||c.expiryDate)}))
+    .filter(c=>c.days!==null && c.days<=90)
+    .sort((a,b)=>a.days-b.days)
+    .slice(0,10);
+  if(!upcoming.length){ wrapper.style.display='none'; return; }
+  wrapper.style.display='';
+  strip.innerHTML = upcoming.map(c=>{
+    const cls = c.days<0?'urgent': c.days<=30?'warn':'ok';
+    const label = c.days<0?`${Math.abs(c.days)}d overdue`: c.days===0?'Today':c.days===1?'Tomorrow':`${c.days}d left`;
+    const name=c['Customer Name']||c.customerName||'-';
+    const expDate=c['Expiry Date']||c.expiryDate||'';
+    const cno=c['Contract No']||c.contractNo||'';
+    return`<div class="amc-timeline-card ${cls}" title="Click to view" onclick="navigate('amc')">
+      <div class="amc-tl-name">${name}</div>
+      <div class="amc-tl-date">Expires: ${fmtDate(expDate)}</div>
+      <div class="amc-tl-days ${cls}">${label}</div>
+      <div class="amc-tl-label">${cno}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAMCTable(list){
+  const tbody = document.getElementById('amc-body');
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="9"><div class="empty-state" style="padding:30px;"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" width="44" height="44" style="margin:0 auto 14px;display:block;opacity:.35;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><h3>No AMC contracts yet</h3><p>Add your first contract using the button above.</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML=[...list].sort((a,b)=>amcDaysLeft(a['Expiry Date']||a.expiryDate)-amcDaysLeft(b['Expiry Date']||b.expiryDate)).map((c)=>{
+    const days=amcDaysLeft(c['Expiry Date']||c.expiryDate);
+    const origIdx=liveAMC.findIndex(x=>x['Contract No']===c['Contract No']);
+    const val=parseFloat(c['AMC Value']||c.value||0);
+    const contractNo=c['Contract No']||c.contractNo||'-';
+    const customerName=c['Customer Name']||c.customerName||'-';
+    const service=c['Service Description']||c.service||'-';
+    const phone=c['Phone']||c.phone||'';
+    const email=c['Email']||c.email||'';
+    const startDate=c['Start Date']||c.startDate||'';
+    const expiryDate=c['Expiry Date']||c.expiryDate||'';
+    const safeNo=encodeURIComponent(contractNo);
+    return`<tr>
+      <td style="font-weight:600;color:var(--accent)">${contractNo}</td>
+      <td><div style="font-weight:500;">${customerName}</div><div style="font-size:11px;color:var(--text3);">${phone||email||''}</div></td>
+      <td style="font-size:12px;max-width:180px;">${service}</td>
+      <td>${fmtDate(startDate)}</td>
+      <td style="font-weight:500;">${fmtDate(expiryDate)}</td>
+      <td style="font-weight:600;">₹${val?val.toLocaleString('en-IN',{minimumFractionDigits:2}):'-'}</td>
+      <td>${amcBadgeHtml(days)}</td>
+      <td>${amcDaysHtml(days)}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn" style="padding:4px 10px;font-size:12px;" onclick="editAMC(${origIdx})">Edit</button>
+        <button class="btn" style="padding:4px 8px;font-size:12px;color:var(--danger);border-color:var(--danger);" onclick="deleteAMC('${safeNo}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAMC(searchVal){
+  const q=(searchVal||'').toLowerCase();
+  const statusFilter=document.getElementById('amc-filter-status').value;
+  let filtered=liveAMC.filter(c=>{
+    const matchText=(c['Contract No']||c.contractNo||'').toLowerCase().includes(q)||(c['Customer Name']||c.customerName||'').toLowerCase().includes(q)||(c['Service Description']||c.service||'').toLowerCase().includes(q);
+    if(!matchText) return false;
+    if(statusFilter){
+      const s=amcStatus(amcDaysLeft(c['Expiry Date']||c.expiryDate));
+      if(statusFilter==='active'&&s!=='active') return false;
+      if(statusFilter==='expiring'&&s!=='expiring') return false;
+      if(statusFilter==='expired'&&s!=='expired') return false;
+    }
+    return true;
+  });
+  renderAMCTable(filtered);
+}
+
+function openAddAMC(){
+  document.getElementById('amc-modal-title').textContent='Add AMC Contract';
+  document.getElementById('amc-edit-row').value='';
+  document.getElementById('amc-contract-no').value=genNextAMCNo();
+  document.getElementById('amc-customer-name').value='';
+  document.getElementById('amc-phone').value='';
+  document.getElementById('amc-email').value='';
+  document.getElementById('amc-service').value='';
+  document.getElementById('amc-start-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('amc-expiry-date').value='';
+  document.getElementById('amc-value').value='';
+  document.getElementById('amc-freq').value='Annual';
+  document.getElementById('amc-notes').value='';
+  openModal('amc-modal');
+}
+
+function editAMC(idx){
+  const c=liveAMC[idx];
+  if(!c) return;
+  document.getElementById('amc-modal-title').textContent='Edit AMC Contract';
+  document.getElementById('amc-edit-row').value=idx;
+  document.getElementById('amc-contract-no').value=c['Contract No']||c.contractNo||'';
+  document.getElementById('amc-customer-name').value=c['Customer Name']||c.customerName||'';
+  document.getElementById('amc-phone').value=c['Phone']||c.phone||'';
+  document.getElementById('amc-email').value=c['Email']||c.email||'';
+  document.getElementById('amc-service').value=c['Service Description']||c.service||'';
+  document.getElementById('amc-start-date').value=c['Start Date']||c.startDate||'';
+  document.getElementById('amc-expiry-date').value=c['Expiry Date']||c.expiryDate||'';
+  document.getElementById('amc-value').value=c['AMC Value']||c.value||'';
+  document.getElementById('amc-freq').value=c['Payment Frequency']||c.freq||'Annual';
+  document.getElementById('amc-notes').value=c['Notes']||c.notes||'';
+  openModal('amc-modal');
+}
+
+function deleteAMC(encodedContractNo){
+  const contractNo=decodeURIComponent(encodedContractNo);
+  if(!confirm('Delete AMC contract '+contractNo+'? This cannot be undone.')) return;
+  gasPostAMC('deleteAMCContract',{contractNo}).then(d=>{
+    if(d.success){
+      showToast('Contract deleted.','error');
+      loadAndRenderAMC();
+      loadDashboardAMC();
+    } else {
+      showToast(d.message||'Delete failed.','error');
+    }
+  }).catch(()=>showToast('Delete failed — check connection.','error'));
+}
+
+function saveAMCContract(){
+  const contractNo=(document.getElementById('amc-contract-no').value||'').trim();
+  const customerName=(document.getElementById('amc-customer-name').value||'').trim();
+  const service=(document.getElementById('amc-service').value||'').trim();
+  const expiryDate=(document.getElementById('amc-expiry-date').value||'').trim();
+  if(!contractNo||!customerName||!service||!expiryDate){
+    showToast('Contract No, Customer, Service and Expiry Date are required.','error'); return;
+  }
+
+  const record={
+    contractNo, customerName,
+    phone:    document.getElementById('amc-phone').value||'',
+    email:    document.getElementById('amc-email').value||'',
+    service,
+    startDate: document.getElementById('amc-start-date').value||'',
+    expiryDate,
+    value:    document.getElementById('amc-value').value||'',
+    freq:     document.getElementById('amc-freq').value||'Annual',
+    notes:    document.getElementById('amc-notes').value||''
+  };
+
+  const editIdx=document.getElementById('amc-edit-row').value;
+  const rowIndex=(editIdx!=='')?parseInt(editIdx,10):-1;
+
+  // Duplicate check for new contracts only (client-side fast check)
+  if(rowIndex===-1 && liveAMC.some(c=>(c['Contract No']||c.contractNo||'').toLowerCase()===contractNo.toLowerCase())){
+    showToast('Contract No. already exists.','error'); return;
+  }
+
+  const btn=document.getElementById('amc-save-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  gasPostAMC('saveAMCContract',{data:record, rowIndex}).then(d=>{
+    btn.disabled=false; btn.textContent='Save Contract';
+    if(d.success){
+      showToast(rowIndex>=0?'AMC contract updated.':'AMC contract saved.','success');
+      closeModal('amc-modal');
+      loadAndRenderAMC();
+      loadDashboardAMC();
+    } else {
+      showToast(d.message||'Save failed.','error');
+    }
+  }).catch(()=>{
+    btn.disabled=false; btn.textContent='Save Contract';
+    showToast('Save failed — check connection.','error');
+  });
+}
+
+function genNextAMCNo(){
+  const now=new Date(); const yr=now.getFullYear(); const mo=now.getMonth()+1;
+  const fyStart=mo>=4?yr:yr-1; const fyEnd=fyStart+1;
+  const fySuffix=String(fyStart).slice(-2)+'-'+String(fyEnd).slice(-2);
+  const prefix='AMC/'+fySuffix+'/';
+  let max=0;
+  liveAMC.forEach(c=>{
+    const no=c['Contract No']||c.contractNo||'';
+    if(no.startsWith(prefix)){ const n=parseInt((no.split('/')).pop(),10); if(!isNaN(n)&&n>max)max=n; }
+  });
+  return prefix+String(max+1).padStart(3,'0');
+}
+
+// AMC Customer autocomplete from liveCustomers
+function onAMCCustomerSearch(val){
+  const drop=document.getElementById('amc-buyer-dropdown');
+  if(!val||val.length<2){drop.style.display='none';return;}
+  const q=val.toLowerCase();
+  const matches=(liveCustomers||[]).filter(c=>(c['Name']||'').toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length){drop.style.display='none';return;}
+  drop.innerHTML=matches.map(c=>`<div class="buyer-option" onmousedown="selectAMCCustomer(event,'${(c['Name']||'').replace(/'/g,"\\'")}','${(c['Phone']||'').replace(/'/g,"\\'")}','${(c['Email']||'').replace(/'/g,"\\'")}')">
+    <div class="buyer-option-name">${c['Name']||''}</div>
+    <div class="buyer-option-sub">${c['Phone']||''} ${c['Email']?'· '+c['Email']:''}</div>
+  </div>`).join('');
+  drop.style.display='block';
+}
+
+function selectAMCCustomer(e,name,phone,email){
+  e.preventDefault();
+  document.getElementById('amc-customer-name').value=name;
+  document.getElementById('amc-phone').value=phone;
+  document.getElementById('amc-email').value=email;
+  closeAMCBuyerDropdown();
+}
+function closeAMCBuyerDropdown(){ const d=document.getElementById('amc-buyer-dropdown'); if(d)d.style.display='none'; }
+
+// ── DASHBOARD AMC RENEWAL WIDGET ──────────────────────────────────────────────
+function loadDashboardAMC(){
+  const list=document.getElementById('dash-amc-list');
+  const subtitle=document.getElementById('dash-amc-subtitle');
+  if(list) list.innerHTML='<div style="padding:20px 24px;text-align:center;color:var(--text3);font-size:13px;">Loading AMC data…</div>';
+  gasGetAMC().then(contracts=>{
+    liveAMC=contracts;
+    if(!liveAMC.length){
+      list.innerHTML='<div style="padding:20px 24px;text-align:center;color:var(--text3);font-size:13px;">No AMC contracts added yet. <button class="btn btn-primary" style="margin-left:10px;padding:5px 12px;font-size:12px;" onclick="navigate(\'amc\')">Add First Contract</button></div>';
+      subtitle.textContent='No contracts tracked';
+      return;
+    }
+    const sorted=[...liveAMC]
+      .map(c=>({...c,days:amcDaysLeft(c['Expiry Date']||c.expiryDate)}))
+      .filter(c=>c.days!==null && c.days<=90)
+      .sort((a,b)=>a.days-b.days);
+
+    if(!sorted.length){
+      list.innerHTML='<div style="padding:20px 24px;color:var(--success);font-size:13px;display:flex;align-items:center;gap:8px;"><span>✓</span><span>All AMC contracts are healthy — no renewals due in next 90 days.</span></div>';
+      subtitle.textContent='All clear — no renewals within 90 days';
+      return;
+    }
+    const urgent=sorted.filter(c=>c.days<0).length;
+    const expiring=sorted.filter(c=>c.days>=0&&c.days<=30).length;
+    subtitle.textContent=`${urgent} overdue · ${expiring} expiring within 30 days`;
+    list.innerHTML=sorted.slice(0,8).map(c=>{
+      const cls=c.days<0?'urgent':c.days<=30?'warn':'ok';
+      const label=c.days<0?`${Math.abs(c.days)}d overdue`:c.days===0?'Expires Today':c.days===1?'Expires Tomorrow':`${c.days} days left`;
+      const cName=c['Customer Name']||c.customerName||'-';
+      const cNo=c['Contract No']||c.contractNo||'';
+      const cService=c['Service Description']||c.service||'';
+      return`<div class="amc-dash-row" onclick="navigate('amc')">
+      <div class="amc-dash-dot ${cls}"></div>
+      <div class="amc-dash-name">${cName}<span style="font-size:11px;color:var(--text3);margin-left:8px;">${cNo}</span></div>
+      <div class="amc-dash-meta">${cService?cService.substring(0,40)+(cService.length>40?'…':''):''}</div>
+      <div class="amc-dash-days ${cls}">${label}</div>
+    </div>`;
+    }).join('');
+  }).catch(err=>{
+    if(err==='session') return;
+    if(list) list.innerHTML='<div style="padding:20px 24px;text-align:center;color:var(--danger);font-size:13px;">Failed to load AMC data.</div>';
+    if(subtitle) subtitle.textContent='Load error';
   });
 }
 
