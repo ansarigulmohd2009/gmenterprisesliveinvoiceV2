@@ -2876,9 +2876,9 @@ function buildQuotationHtml(data){
 
   const fmtD=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
 
-  // Group tax by GST %
+  // Group tax by GST % — only include if tax amount > 0
   const taxMap={};
-  items.forEach(i=>{const p=parseFloat(i.gstPct)||0;if(p>0){const t=(i.amount||0)*p/100;taxMap[p]=(taxMap[p]||0)+t;}});
+  items.forEach(i=>{const p=parseFloat(i.gstPct)||0;if(p>0){const t=(i.amount||0)*p/100;if(t>0)taxMap[p]=(taxMap[p]||0)+t;}});
 
   let itemRowsHtml='';
   items.forEach((item,idx)=>{
@@ -2990,7 +2990,7 @@ function buildQuotationHtml(data){
           (data.notes?'<div style="font-size:10px;"><span class="bold">Terms & Notes:</span> '+data.notes+'</div>':'')+''+
         '</td>'+
       '</tr>'+
-      '<tr><td colspan="2" style="padding:0;">'+
+      '<tr><td colspan="2" style="padding:0;border:none;">'+
         '<table width="100%" style="border-collapse:collapse;" cellpadding="0" cellspacing="0">'+
           '<tr>'+
             '<td width="55%" class="b-right" style="font-size:10px;padding:6px;vertical-align:top;">'+
