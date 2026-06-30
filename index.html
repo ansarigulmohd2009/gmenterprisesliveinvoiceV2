@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>G.M. Enterprises — Invoice Web App. Develop by Itransform Technology</title>
+<title>G.M. Enterprises — Invoice App</title>
 <style>
   :root {
     --bg: #0F1117; --surface: #1A1D27; --surface2: #22263A;
@@ -186,7 +186,7 @@
   .login-eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; }
   .login-btn { width: 100%; background: var(--accent); color: white; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.15s; }
   .login-btn:hover { background: #3C3489; }
-  .login-footer { text-align: center; font-size: 15px; color: #ccc; margin-top: 28px; }
+  .login-footer { text-align: center; font-size: 10px; color: #ccc; margin-top: 28px; }
 
   /* LEDGER */
   .cr { color: var(--success); } .dr { color: var(--danger); } .ledger-running { font-weight: 600; }
@@ -258,6 +258,15 @@
     .stat-grid { grid-template-columns: 1fr 1fr; }
     .report-grid { grid-template-columns: 1fr 1fr; }
     .form-grid { grid-template-columns: 1fr; }
+    .inv-card:has(.items-table) { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    .items-table { min-width: 640px; }
+    .items-table th, .items-table td { white-space: nowrap; }
+    .items-table th:first-child, .items-table td:first-child { white-space: normal; min-width: 160px; }
+    .items-table th:nth-child(3), .items-table td:nth-child(3) { min-width: 64px; }
+    .items-table th:nth-child(4), .items-table td:nth-child(4) { min-width: 64px; }
+    .items-table th:nth-child(5), .items-table td:nth-child(5) { min-width: 84px; }
+    .items-table input, .items-table select { font-size: 14px; padding: 8px 6px; }
+    .items-table input[type="number"] { min-width: 56px; }
   }
   @media print { body { visibility: hidden; } }
 </style>
@@ -390,13 +399,13 @@
       <button class="btn" onclick="closeNewInvoicePage()" style="padding:6px 12px;">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>Back
       </button>
-      <span id="inv-page-title" style="font-size:15px;font-weight:600;">New Invoice</span>
+      <span style="font-size:15px;font-weight:600;">New Invoice</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="inv-save-status" style="font-size:12px;color:var(--text3);font-weight:500;">● Unsaved</span>
       <button class="btn btn-success" id="header-save-btn" onclick="handleSaveToSheets()" style="padding:6px 14px;font-size:12px;font-weight:700;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span id="header-save-btn-label">Save</span>
+        Save
       </button>
     </div>
   </div>
@@ -407,7 +416,7 @@
       <button class="btn" onclick="closeNewChallanPage()" style="padding:6px 12px;">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>Back
       </button>
-      <span id="challan-page-title" style="font-size:15px;font-weight:600;">New Delivery Challan</span>
+      <span style="font-size:15px;font-weight:600;">New Delivery Challan</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="challan-save-status" style="font-size:12px;color:var(--text3);font-weight:500;">● Unsaved</span>
@@ -417,7 +426,7 @@
       </button>
       <button class="btn btn-success" id="challan-save-btn" onclick="handleSaveChallan()" style="padding:6px 14px;font-size:12px;font-weight:700;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span id="challan-save-btn-label">Save Challan</span>
+        Save Challan
       </button>
       <button class="btn" onclick="handlePrintChallan()" style="padding:6px 14px;font-size:12px;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="13" height="13"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -827,7 +836,7 @@
       </button>
       <button class="btn btn-success" id="page-save-btn" onclick="handleSaveToSheets()" style="padding:8px 22px;font-size:13px;font-weight:700;letter-spacing:0.2px;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14" height="14"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span id="page-save-btn-label">Save Invoice</span>
+        Save Invoice
       </button>
       <button class="btn" onclick="handlePrint()" style="padding:8px 16px;">
         <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" width="14" height="14"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -1197,36 +1206,6 @@
   </div>
 </div>
 
-<!-- VIEW INVOICE — read-only details modal -->
-<div class="modal-overlay" id="invoice-view-modal">
-  <div class="modal" style="width:760px;">
-    <div class="modal-header">
-      <div class="modal-title">Invoice Details</div>
-      <button class="close-btn" onclick="closeModal('invoice-view-modal')"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="modal-body" id="invoice-view-body"></div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('invoice-view-modal')">Close</button>
-      <button class="btn btn-success" onclick="printViewedInvoice()">Print / PDF</button>
-    </div>
-  </div>
-</div>
-
-<!-- VIEW CHALLAN — read-only details modal -->
-<div class="modal-overlay" id="challan-view-modal">
-  <div class="modal" style="width:680px;">
-    <div class="modal-header">
-      <div class="modal-title">Challan Details</div>
-      <button class="close-btn" onclick="closeModal('challan-view-modal')"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-    </div>
-    <div class="modal-body" id="challan-view-body"></div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('challan-view-modal')">Close</button>
-      <button class="btn btn-success" onclick="printViewedChallan()">Print / PDF</button>
-    </div>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <!-- ══════════════════════════════════════════════════ SCRIPT ══════════════ -->
@@ -1248,12 +1227,8 @@ let invState = {
   invoiceMeta:{ invoiceNo:'', date:new Date().toISOString().split('T')[0], challanNo:'' },
   buyer:{ name:'', address:'', gstin:'', state:'Maharashtra', stateCode:'27', phone:'', email:'' },
   taxes:{ cgst:9, sgst:9, igst:0 },
-  lineItems:[], isSaved:false, savedBuyers:[], buyerSearchTimeout:null,
-  editMode:false, originalInvoiceNo:''
+  lineItems:[], isSaved:false, savedBuyers:[], buyerSearchTimeout:null
 };
-// Guarantees unique line-item ids even when several rows are created in the
-// same millisecond (e.g. bulk-loading items while opening Edit Invoice/Challan).
-let __gmeItemIdSeq=0;
 
 // Live data — loaded from GAS, no dummy entries
 let liveInvoices=[], liveCustomers=[], liveItems=[];
@@ -1355,10 +1330,6 @@ function openNewInvoicePage(){
   invState.buyer={name:'',address:'',gstin:'',state:'Maharashtra',stateCode:'27',phone:'',email:''};
   invState.taxes={cgst:9,sgst:9,igst:0};
   invState.lineItems=[];invState.isSaved=false;
-  invState.editMode=false;invState.originalInvoiceNo='';
-  const ititle=document.getElementById('inv-page-title');if(ititle)ititle.textContent='New Invoice';
-  const hlbl=document.getElementById('header-save-btn-label');if(hlbl)hlbl.textContent='Save';
-  const plbl=document.getElementById('page-save-btn-label');if(plbl)plbl.textContent='Save Invoice';
   const ss=document.getElementById('inv-save-status');if(ss){ss.textContent='● Unsaved';ss.style.color='var(--text3)';}
 
   // Reset fields
@@ -1456,21 +1427,15 @@ function renderInvoicesTable(data){
     document.getElementById('invoices-body').innerHTML='<tr><td colspan="6"><div class="empty-state" style="padding:30px;"><h3>No invoices found</h3><p>Create your first invoice.</p></div></td></tr>';
     return;
   }
-  document.getElementById('invoices-body').innerHTML=[...data].reverse().map(inv=>{
-    const no=(inv['Invoice No']||'').replace(/'/g,"\\'");
-    return`
+  document.getElementById('invoices-body').innerHTML=[...data].reverse().map(inv=>`
     <tr>
       <td style="font-weight:600;color:var(--accent)">${inv['Invoice No']||'-'}</td>
       <td>${inv['Buyer Name']||'-'}</td>
       <td>${fmtDate(inv['Date'])}</td>
       <td style="font-weight:600">₹${parseFloat(inv['Grand Total']||0).toLocaleString('en-IN')}</td>
       <td>₹${parseFloat(inv['Tax Amount']||0).toLocaleString('en-IN')}</td>
-      <td style="white-space:nowrap;">
-        <button class="btn" style="padding:4px 10px;font-size:12px;" onclick="viewInvoice('${no}')">View</button>
-        <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="editInvoice('${no}')">Edit</button>
-        <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="reprintInvoice('${no}')">Reprint</button>
-      </td>
-    </tr>`;}).join('');
+      <td><button class="btn" style="padding:4px 10px;font-size:12px;" onclick="reprintInvoice('${(inv['Invoice No']||'').replace(/'/g,"\\'")}')">Reprint</button></td>
+    </tr>`).join('');
 }
 
 function filterInvoices(val){
@@ -1918,7 +1883,7 @@ function setInvoiceNo(val){invState.invoiceMeta.invoiceNo=val;invState.isSaved=f
 
 // ── LINE ITEMS ────────────────────────────────────────────────────────────────
 function addLineItem(){
-  const id=Date.now()*1000+(++__gmeItemIdSeq%1000);
+  const id=Date.now();
   invState.lineItems.push({id,desc:'',hsn:'',qty:1,unit:'Nos',rate:0,gstPct:18,amount:0});
   const tr=document.createElement('tr');
   tr.id='li-'+id;
@@ -2058,7 +2023,6 @@ async function handleSaveBuyer(){
 
 // ── SAVE INVOICE (GAS) ────────────────────────────────────────────────────────
 async function handleSaveToSheets(){
-  if(invState.editMode){ return handleUpdateInvoiceToSheets(); }
   if(!invState.invoiceMeta.invoiceNo.trim()){showToast('Invoice No. is required.','error');return;}
   if(!invState.buyer.name.trim()){showToast('Buyer name is required.','error');return;}
   if(!invState.lineItems.length){showToast('Add at least one line item.','error');return;}
@@ -2104,58 +2068,6 @@ async function handleSaveToSheets(){
   }
 }
 
-// ── UPDATE EXISTING INVOICE (GAS) — overwrites the original Sheets row ───────
-async function handleUpdateInvoiceToSheets(){
-  if(!invState.invoiceMeta.invoiceNo.trim()){showToast('Invoice No. is required.','error');return;}
-  if(!invState.buyer.name.trim()){showToast('Buyer name is required.','error');return;}
-  if(!invState.lineItems.length){showToast('Add at least one line item.','error');return;}
-  invState.lineItems.forEach(item=>{item.amount=(parseFloat(item.qty)||0)*(parseFloat(item.rate)||0);});
-  const totals=getComputedTotals();
-  const btn=document.getElementById('page-save-btn');
-  const hBtn=document.getElementById('header-save-btn');
-  const pLbl=document.getElementById('page-save-btn-label');
-  const hLbl=document.getElementById('header-save-btn-label');
-  if(btn)btn.disabled=true; if(hBtn)hBtn.disabled=true;
-  if(pLbl)pLbl.textContent='Updating…'; if(hLbl)hLbl.textContent='Updating…';
-  const cleanItems=invState.lineItems.map(item=>({desc:item.desc||'',hsn:item.hsn||'',qty:parseFloat(item.qty)||0,rate:parseFloat(item.rate)||0,unit:item.unit||'Nos',gstPct:parseFloat(item.gstPct)||0,amount:parseFloat(item.amount)||0}));
-  const payload={
-    action:'updateInvoice',secret:API_SECRET,
-    token:sessionStorage.getItem('gme_token')||'',
-    username:sessionStorage.getItem('gme_username')||'Unknown',
-    originalInvoiceNo:invState.originalInvoiceNo,
-    data:{
-      invoiceNo:invState.invoiceMeta.invoiceNo, date:invState.invoiceMeta.date, challanNo:invState.invoiceMeta.challanNo||'',
-      companyName:COMPANY.name,
-      buyerName:invState.buyer.name, buyerPhone:invState.buyer.phone||'', buyerEmail:invState.buyer.email||'',
-      buyerAddress:invState.buyer.address||'', buyerGstin:invState.buyer.gstin||'',
-      buyerState:invState.buyer.state||'Maharashtra', stateCode:invState.buyer.stateCode||'27',
-      subTotal:totals.subTotal, cgstRate:invState.taxes.cgst, cgstAmount:totals.cgstAmt,
-      sgstRate:invState.taxes.sgst, sgstAmount:totals.sgstAmt,
-      igstRate:invState.taxes.igst, igstAmount:totals.igstAmt,
-      taxAmount:totals.cgstAmt+totals.sgstAmt+totals.igstAmt, grandTotal:totals.grandTotal,
-      items:cleanItems
-    }
-  };
-  try{
-    const response=await fetch(googleScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
-    const result=await response.json();
-    if(result.sessionExpired){doLogout();return;}
-    if(result.result==='duplicate'){showToast(`Invoice "${invState.invoiceMeta.invoiceNo}" already exists.`,'error');}
-    else if(result.result==='notfound'){showToast('Original invoice not found — it may have been deleted.','error');}
-    else if(result.result==='success'){
-      invState.isSaved=true;
-      invState.originalInvoiceNo=invState.invoiceMeta.invoiceNo;
-      const statusEl=document.getElementById('inv-save-status');
-      if(statusEl){statusEl.textContent='✓ Updated';statusEl.style.color='var(--success)';}
-      showToast('Invoice updated in Google Sheets.','success');
-    }else{showToast('Error: '+(result.message||'Unknown response'),'error');}
-  }catch(err){showToast('Database connection failed. Check internet.','error');}
-  finally{
-    if(btn)btn.disabled=false; if(hBtn)hBtn.disabled=false;
-    if(pLbl)pLbl.textContent='Update Invoice'; if(hLbl)hLbl.textContent='Update';
-  }
-}
-
 // ── PRINT — mirrors GAS buildInvoiceHtml exactly (Report-Reprint quality) ────
 function handlePrint(){
   if(!invState.isSaved){showToast('Please save the invoice before printing!','error');return;}
@@ -2191,138 +2103,6 @@ async function reprintInvoice(invoiceNo){
       grandTotal:inv['Grand Total'], items
     });
   }catch(e){showToast('Failed to load invoice for print.','error');}
-}
-
-// Converts a date value coming back from Sheets (which may be a plain
-// "YYYY-MM-DD" string or an ISO datetime string if the column auto-converted
-// to a Date) into the format <input type="date"> expects.
-function toDateInputValue(v){
-  if(!v) return new Date().toISOString().split('T')[0];
-  v=String(v);
-  return v.includes('T') ? v.split('T')[0] : v;
-}
-
-// ── VIEW INVOICE (read-only) ─────────────────────────────────────────────────
-let _viewedInvoiceData=null;
-async function viewInvoice(invoiceNo){
-  showToast('Loading invoice…');
-  const token=sessionStorage.getItem('gme_token')||'';
-  try{
-    const res=await fetch(`${googleScriptUrl}?action=getInvoiceByNo&invoiceNo=${encodeURIComponent(invoiceNo)}&token=${encodeURIComponent(token)}`);
-    const data=await res.json();
-    if(data.sessionExpired){doLogout();return;}
-    if(!data.invoice){showToast('Invoice not found.','error');return;}
-    const inv=data.invoice;
-    let items=[];try{items=JSON.parse(inv['Items (JSON)']||'[]');}catch(e){}
-    _viewedInvoiceData={
-      invoiceNo:inv['Invoice No'], date:inv['Date'], challanNo:inv['Challan No']||'',
-      buyerName:inv['Buyer Name'], buyerAddress:inv['Buyer Address'], buyerGstin:inv['Buyer GSTIN'],
-      buyerState:inv['Buyer State']||'Maharashtra', stateCode:'27',
-      buyerPhone:inv['Buyer Phone']||'', buyerEmail:inv['Buyer Email']||'',
-      subTotal:inv['Sub Total'], cgstRate:inv['CGST Rate'], sgstRate:inv['SGST Rate'], igstRate:inv['IGST Rate'],
-      cgstAmount:inv['CGST Amount'], sgstAmount:inv['SGST Amount'], igstAmount:inv['IGST Amount'],
-      grandTotal:inv['Grand Total'], items
-    };
-    const cgstAmt=parseFloat(inv['CGST Amount']||0), sgstAmt=parseFloat(inv['SGST Amount']||0), igstAmt=parseFloat(inv['IGST Amount']||0);
-    const itemsRowsHtml=items.map((it,i)=>`<tr><td>${i+1}</td><td>${it.desc||''}</td><td>${it.hsn||''}</td><td style="text-align:right;">${it.qty}</td><td style="text-align:right;">₹${parseFloat(it.rate||0).toFixed(2)}</td><td>${it.unit||'Nos'}</td><td style="text-align:right;font-weight:600;">₹${parseFloat(it.amount||0).toLocaleString('en-IN')}</td></tr>`).join('');
-    document.getElementById('invoice-view-body').innerHTML=`
-      <div class="form-grid" style="margin-bottom:16px;">
-        <div><div style="font-size:11px;color:var(--text3);">Invoice No.</div><div style="font-weight:600;">${inv['Invoice No']||'-'}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Date</div><div style="font-weight:600;">${fmtDate(inv['Date'])}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Challan No.</div><div style="font-weight:600;">${inv['Challan No']||'-'}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Saved By</div><div style="font-weight:600;">${inv['Saved By']||'-'}</div></div>
-      </div>
-      <div style="margin-bottom:16px;">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">Buyer (Bill To)</div>
-        <div style="font-weight:600;">${inv['Buyer Name']||'-'}</div>
-        <div style="font-size:13px;color:var(--text2);white-space:pre-line;">${inv['Buyer Address']||'-'}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">GSTIN: ${inv['Buyer GSTIN']||'Unregistered'}${inv['Buyer Phone']?' · Ph: '+inv['Buyer Phone']:''}${inv['Buyer Email']?' · '+inv['Buyer Email']:''}</div>
-      </div>
-      <table class="items-table">
-        <thead><tr><th>#</th><th>Description</th><th>HSN</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Rate</th><th>Unit</th><th style="text-align:right;">Amount</th></tr></thead>
-        <tbody>${itemsRowsHtml||'<tr><td colspan="7" style="text-align:center;color:var(--text3);">No items</td></tr>'}</tbody>
-      </table>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <div class="summary-box" style="min-width:280px;">
-          <div class="summary-row"><span>Subtotal</span><span>₹${parseFloat(inv['Sub Total']||0).toLocaleString('en-IN')}</span></div>
-          ${cgstAmt>0?`<div class="summary-row"><span>CGST (${inv['CGST Rate']}%)</span><span>₹${cgstAmt.toFixed(2)}</span></div><div class="summary-row"><span>SGST (${inv['SGST Rate']}%)</span><span>₹${sgstAmt.toFixed(2)}</span></div>`:''}
-          ${igstAmt>0?`<div class="summary-row"><span>IGST (${inv['IGST Rate']}%)</span><span>₹${igstAmt.toFixed(2)}</span></div>`:''}
-          <div class="summary-row total"><span>Grand Total</span><span>₹${parseFloat(inv['Grand Total']||0).toLocaleString('en-IN')}</span></div>
-        </div>
-      </div>`;
-    openModal('invoice-view-modal');
-  }catch(e){showToast('Failed to load invoice.','error');}
-}
-function printViewedInvoice(){ if(_viewedInvoiceData) printInvoiceHtml(_viewedInvoiceData); }
-
-// ── EDIT INVOICE — loads a saved invoice into the New Invoice page for editing ─
-async function editInvoice(invoiceNo){
-  showToast('Loading invoice for edit…');
-  const token=sessionStorage.getItem('gme_token')||'';
-  try{
-    const res=await fetch(`${googleScriptUrl}?action=getInvoiceByNo&invoiceNo=${encodeURIComponent(invoiceNo)}&token=${encodeURIComponent(token)}`);
-    const data=await res.json();
-    if(data.sessionExpired){doLogout();return;}
-    if(!data.invoice){showToast('Invoice not found.','error');return;}
-    const inv=data.invoice;
-    let items=[];try{items=JSON.parse(inv['Items (JSON)']||'[]');}catch(e){}
-
-    // Hide regular topbar and all other pages — same as openNewInvoicePage
-    document.getElementById('main-topbar').style.display='none';
-    const chdr=document.getElementById('challan-page-header');if(chdr)chdr.style.display='none';
-    const qhdr=document.getElementById('quotation-page-header');if(qhdr)qhdr.style.display='none';
-    document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('page-hidden'));
-
-    // Populate state from the saved invoice
-    invState.invoiceMeta={invoiceNo:inv['Invoice No']||'',date:toDateInputValue(inv['Date']),challanNo:inv['Challan No']||''};
-    invState.buyer={name:inv['Buyer Name']||'',address:inv['Buyer Address']||'',gstin:inv['Buyer GSTIN']||'',state:inv['Buyer State']||'Maharashtra',stateCode:inv['State Code']||'27',phone:inv['Buyer Phone']||'',email:inv['Buyer Email']||''};
-    const cgstRate=parseFloat(inv['CGST Rate']||0), sgstRate=parseFloat(inv['SGST Rate']||0), igstRate=parseFloat(inv['IGST Rate']||0);
-    invState.taxes={cgst:cgstRate||9, sgst:sgstRate||9, igst:igstRate||0};
-    invState.lineItems=[]; invState.isSaved=true;
-    invState.editMode=true; invState.originalInvoiceNo=inv['Invoice No']||'';
-
-    document.getElementById('inv-no').value=invState.invoiceMeta.invoiceNo;
-    document.getElementById('inv-date').value=invState.invoiceMeta.date;
-    document.getElementById('inv-challan').value=invState.invoiceMeta.challanNo;
-    document.getElementById('inv-gst-type').value=igstRate>0?'IGST':'CGST_SGST';
-    document.getElementById('buyer-name').value=invState.buyer.name;
-    document.getElementById('buyer-address').value=invState.buyer.address;
-    document.getElementById('buyer-gstin').value=invState.buyer.gstin;
-    document.getElementById('buyer-state').value=invState.buyer.state;
-    document.getElementById('buyer-phone').value=invState.buyer.phone;
-    document.getElementById('buyer-email').value=invState.buyer.email;
-    document.getElementById('tax-cgst').value=invState.taxes.cgst;
-    document.getElementById('tax-sgst').value=invState.taxes.sgst;
-    document.getElementById('tax-igst').value=invState.taxes.igst;
-    document.getElementById('buyer-dropdown').style.display='none';
-    document.getElementById('line-items').innerHTML='';
-    document.getElementById('inv-no-status').textContent='';
-
-    items.forEach(it=>{
-      addLineItem();
-      const last=invState.lineItems[invState.lineItems.length-1];
-      last.desc=it.desc||''; last.hsn=it.hsn||''; last.qty=parseFloat(it.qty)||0;
-      last.unit=it.unit||'Nos'; last.rate=parseFloat(it.rate)||0; last.gstPct=parseFloat(it.gstPct)||18;
-      const dEl=document.querySelector('.li-desc-'+last.id); if(dEl)dEl.value=last.desc;
-      const hEl=document.querySelector('.li-hsn-'+last.id); if(hEl)hEl.value=last.hsn;
-      const qEl=document.querySelector('.li-qty-'+last.id); if(qEl)qEl.value=last.qty;
-      const uEl=document.querySelector('.li-unit-'+last.id); if(uEl)uEl.value=last.unit;
-      const rEl=document.querySelector('.li-rate-'+last.id); if(rEl)rEl.value=last.rate;
-      const gEl=document.querySelector('.li-gst-'+last.id); if(gEl)gEl.value=last.gstPct;
-    });
-    if(!items.length) addLineItem();
-
-    const titleEl=document.getElementById('inv-page-title'); if(titleEl)titleEl.textContent='Edit Invoice — '+invState.invoiceMeta.invoiceNo;
-    const hLbl=document.getElementById('header-save-btn-label'); if(hLbl)hLbl.textContent='Update';
-    const pLbl=document.getElementById('page-save-btn-label'); if(pLbl)pLbl.textContent='Update Invoice';
-    const ss=document.getElementById('inv-save-status'); if(ss){ss.textContent='✎ Editing saved invoice';ss.style.color='var(--text3)';}
-
-    document.getElementById('inv-page-header').style.display='flex';
-    document.getElementById('page-new-invoice').classList.remove('page-hidden');
-    document.getElementById('inv-bottom-bar').style.display='flex';
-    recalc();
-    showToast('Invoice loaded — make changes and click Update.','success');
-  }catch(e){showToast('Failed to load invoice for edit.','error');}
 }
 
 // Unified print engine — identical layout to GAS buildInvoiceHtml
@@ -2490,7 +2270,7 @@ let challanState = {
   refInvoiceNo:'', transport:'', notes:'',
   buyer:{name:'',address:'',gstin:'',state:'Maharashtra',phone:'',email:''},
   items:[], isSaved:false,
-  buyerSearchTimeout:null, editMode:false, originalChallanNo:''
+  buyerSearchTimeout:null
 };
 let liveChallans=[];
 
@@ -2506,10 +2286,8 @@ function openNewChallanPage(){
     challanNo:'', date:new Date().toISOString().split('T')[0],
     refInvoiceNo:'', transport:'', notes:'',
     buyer:{name:'',address:'',gstin:'',state:'Maharashtra',phone:'',email:''},
-    items:[], isSaved:false, buyerSearchTimeout:null, editMode:false, originalChallanNo:''
+    items:[], isSaved:false, buyerSearchTimeout:null
   };
-  const ctitle=document.getElementById('challan-page-title');if(ctitle)ctitle.textContent='New Delivery Challan';
-  const clbl=document.getElementById('challan-save-btn-label');if(clbl)clbl.textContent='Save Challan';
   const ss=document.getElementById('challan-save-status');if(ss){ss.textContent='● Unsaved';ss.style.color='var(--text3)';}
 
   // Reset fields
@@ -2560,7 +2338,7 @@ async function fetchNextChallanNo(){
 
 // ── CHALLAN LINE ITEMS ────────────────────────────────────────────────────────
 function addChallanItem(){
-  const id=Date.now()*1000+(++__gmeItemIdSeq%1000);
+  const id=Date.now();
   challanState.items.push({id,desc:'',hsn:'',qty:1,unit:'Nos',remarks:''});
   const tr=document.createElement('tr');
   tr.id='chi-'+id;
@@ -2656,7 +2434,6 @@ async function handleSaveChallanBuyer(){
 
 // ── SAVE CHALLAN → GAS ───────────────────────────────────────────────────────
 async function handleSaveChallan(){
-  if(challanState.editMode){ return handleUpdateChallanToSheets(); }
   const challanNo=document.getElementById('ch-no').value.trim();
   if(!challanNo){showToast('Challan No. is required.','error');return;}
   if(!challanState.buyer.name.trim()){showToast('Consignee name is required.','error');return;}
@@ -2706,58 +2483,6 @@ async function handleSaveChallan(){
   finally{if(btn){btn.disabled=false;btn.textContent='Save Challan';}}
 }
 
-// ── UPDATE EXISTING CHALLAN (GAS) — overwrites the original Sheets row ───────
-async function handleUpdateChallanToSheets(){
-  const challanNo=document.getElementById('ch-no').value.trim();
-  if(!challanNo){showToast('Challan No. is required.','error');return;}
-  if(!challanState.buyer.name.trim()){showToast('Consignee name is required.','error');return;}
-  if(!challanState.items.length){showToast('Add at least one item.','error');return;}
-
-  const btn=document.getElementById('challan-save-btn');
-  const lbl=document.getElementById('challan-save-btn-label');
-  if(btn)btn.disabled=true; if(lbl)lbl.textContent='Updating…';
-
-  const cleanItems=challanState.items.map(item=>({
-    desc:item.desc||'', hsn:item.hsn||'',
-    qty:parseFloat(item.qty)||0, unit:item.unit||'Nos', remarks:item.remarks||''
-  }));
-
-  const payload={
-    action:'updateChallan', secret:API_SECRET,
-    token:sessionStorage.getItem('gme_token')||'',
-    username:sessionStorage.getItem('gme_username')||'Unknown',
-    originalChallanNo:challanState.originalChallanNo,
-    challanNo,
-    date:document.getElementById('ch-date').value||'',
-    refInvoiceNo:document.getElementById('ch-ref-inv').value.trim()||'',
-    transport:document.getElementById('ch-transport').value.trim()||'',
-    notes:document.getElementById('ch-notes').value.trim()||'',
-    buyerName:challanState.buyer.name,
-    buyerPhone:challanState.buyer.phone||'',
-    buyerEmail:challanState.buyer.email||'',
-    buyerAddress:challanState.buyer.address||'',
-    buyerGstin:challanState.buyer.gstin||'',
-    buyerState:challanState.buyer.state||'Maharashtra',
-    itemsJson:JSON.stringify(cleanItems)
-  };
-
-  try{
-    const res=await fetch(googleScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
-    const result=await res.json();
-    if(result.sessionExpired){doLogout();return;}
-    if(result.success===false){
-      showToast(result.message||'Could not update challan.','error');
-    }else{
-      challanState.isSaved=true;
-      challanState.originalChallanNo=challanNo;
-      const ss=document.getElementById('challan-save-status');
-      if(ss){ss.textContent='✓ Updated';ss.style.color='var(--success)';}
-      showToast('Challan updated in Google Sheets.','success');
-    }
-  }catch(err){showToast('Database connection failed.','error');}
-  finally{if(btn)btn.disabled=false; if(lbl)lbl.textContent='Update Challan';}
-}
-
 // ── LOAD CHALLANS LIST ────────────────────────────────────────────────────────
 async function loadAndRenderChallans(){
   const token=sessionStorage.getItem('gme_token')||'';
@@ -2780,18 +2505,13 @@ function renderChallansTable(challans){
   }
   document.getElementById('challans-body').innerHTML=[...challans].reverse().map(ch=>{
     let items=[];try{items=JSON.parse(ch['Items (JSON)']||'[]');}catch(e){}
-    const no=(ch['Challan No']||'').replace(/'/g,"\\'");
     return`<tr>
       <td style="font-weight:600;color:var(--accent)">${ch['Challan No']||'-'}</td>
       <td>${ch['Buyer Name']||'-'}</td>
       <td>${fmtDate(ch['Date'])}</td>
       <td style="font-size:12px;color:var(--text3);">${ch['Ref Invoice No']||'-'}</td>
       <td style="font-size:12px;">${items.length} item(s)</td>
-      <td style="white-space:nowrap;">
-        <button class="btn" style="padding:4px 10px;font-size:12px;" onclick="viewChallan('${no}')">View</button>
-        <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="editChallan('${no}')">Edit</button>
-        <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px;" onclick="reprintChallan('${no}')">Reprint</button>
-      </td>
+      <td><button class="btn" style="padding:4px 10px;font-size:12px;" onclick="reprintChallan('${(ch['Challan No']||'').replace(/'/g,"\'")}')">Reprint</button></td>
     </tr>`;
   }).join('');
 }
@@ -2839,113 +2559,6 @@ async function reprintChallan(challanNo){
       buyerPhone:ch['Buyer Phone']||'',buyerEmail:ch['Buyer Email']||'',items
     });
   }catch(e){showToast('Failed to load challan for print.','error');}
-}
-
-// ── VIEW CHALLAN (read-only) ──────────────────────────────────────────────────
-let _viewedChallanData=null;
-async function viewChallan(challanNo){
-  showToast('Loading challan…');
-  const token=sessionStorage.getItem('gme_token')||'';
-  try{
-    const res=await fetch(`${googleScriptUrl}?action=getChallansData&token=${encodeURIComponent(token)}`);
-    const data=await res.json();
-    if(data.sessionExpired){doLogout();return;}
-    const ch=(data.challans||[]).find(c=>(c['Challan No']||'').toString().trim()===challanNo.trim());
-    if(!ch){showToast('Challan not found.','error');return;}
-    let items=[];try{items=JSON.parse(ch['Items (JSON)']||'[]');}catch(e){}
-    _viewedChallanData={
-      challanNo:ch['Challan No'],date:ch['Date'],refInvoiceNo:ch['Ref Invoice No']||'',
-      transport:ch['Transport']||'',notes:ch['Notes']||'',
-      buyerName:ch['Buyer Name'],buyerAddress:ch['Buyer Address'],
-      buyerGstin:ch['Buyer GSTIN'],buyerState:ch['Buyer State']||'Maharashtra',
-      buyerPhone:ch['Buyer Phone']||'',buyerEmail:ch['Buyer Email']||'',items
-    };
-    const itemsRowsHtml=items.map((it,i)=>`<tr><td>${i+1}</td><td>${it.desc||''}</td><td>${it.hsn||''}</td><td style="text-align:right;">${it.qty}</td><td>${it.unit||'Nos'}</td><td>${it.remarks||''}</td></tr>`).join('');
-    document.getElementById('challan-view-body').innerHTML=`
-      <div class="form-grid" style="margin-bottom:16px;">
-        <div><div style="font-size:11px;color:var(--text3);">Challan No.</div><div style="font-weight:600;">${ch['Challan No']||'-'}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Date</div><div style="font-weight:600;">${fmtDate(ch['Date'])}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Ref. Invoice No.</div><div style="font-weight:600;">${ch['Ref Invoice No']||'-'}</div></div>
-        <div><div style="font-size:11px;color:var(--text3);">Transport</div><div style="font-weight:600;">${ch['Transport']||'-'}</div></div>
-      </div>
-      <div style="margin-bottom:16px;">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">Consignee (Ship To)</div>
-        <div style="font-weight:600;">${ch['Buyer Name']||'-'}</div>
-        <div style="font-size:13px;color:var(--text2);white-space:pre-line;">${ch['Buyer Address']||'-'}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">GSTIN: ${ch['Buyer GSTIN']||'Unregistered'}${ch['Buyer Phone']?' · Ph: '+ch['Buyer Phone']:''}${ch['Buyer Email']?' · '+ch['Buyer Email']:''}</div>
-      </div>
-      <table class="items-table">
-        <thead><tr><th>#</th><th>Description</th><th>HSN</th><th style="text-align:right;">Qty</th><th>Unit</th><th>Remarks</th></tr></thead>
-        <tbody>${itemsRowsHtml||'<tr><td colspan="6" style="text-align:center;color:var(--text3);">No items</td></tr>'}</tbody>
-      </table>
-      ${ch['Notes']?`<div style="margin-top:14px;font-size:12px;color:var(--text2);"><strong>Notes:</strong> ${ch['Notes']}</div>`:''}`;
-    openModal('challan-view-modal');
-  }catch(e){showToast('Failed to load challan.','error');}
-}
-function printViewedChallan(){ if(_viewedChallanData) printChallanHtml(_viewedChallanData); }
-
-// ── EDIT CHALLAN — loads a saved challan into the New Challan page for editing ─
-async function editChallan(challanNo){
-  showToast('Loading challan for edit…');
-  const token=sessionStorage.getItem('gme_token')||'';
-  try{
-    const res=await fetch(`${googleScriptUrl}?action=getChallansData&token=${encodeURIComponent(token)}`);
-    const data=await res.json();
-    if(data.sessionExpired){doLogout();return;}
-    const ch=(data.challans||[]).find(c=>(c['Challan No']||'').toString().trim()===challanNo.trim());
-    if(!ch){showToast('Challan not found.','error');return;}
-    let items=[];try{items=JSON.parse(ch['Items (JSON)']||'[]');}catch(e){}
-
-    document.getElementById('main-topbar').style.display='none';
-    const nhdr=document.getElementById('inv-page-header');if(nhdr)nhdr.style.display='none';
-    const qhdr=document.getElementById('quotation-page-header');if(qhdr)qhdr.style.display='none';
-    document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('page-hidden'));
-
-    challanState={
-      challanNo:ch['Challan No']||'', date:toDateInputValue(ch['Date']),
-      refInvoiceNo:ch['Ref Invoice No']||'', transport:ch['Transport']||'', notes:ch['Notes']||'',
-      buyer:{name:ch['Buyer Name']||'',address:ch['Buyer Address']||'',gstin:ch['Buyer GSTIN']||'',state:ch['Buyer State']||'Maharashtra',phone:ch['Buyer Phone']||'',email:ch['Buyer Email']||''},
-      items:[], isSaved:true, buyerSearchTimeout:null,
-      editMode:true, originalChallanNo:ch['Challan No']||''
-    };
-
-    document.getElementById('ch-no').value=challanState.challanNo;
-    document.getElementById('ch-date').value=challanState.date;
-    document.getElementById('ch-ref-inv').value=challanState.refInvoiceNo;
-    document.getElementById('ch-transport').value=challanState.transport;
-    document.getElementById('ch-buyer-name').value=challanState.buyer.name;
-    document.getElementById('ch-buyer-address').value=challanState.buyer.address;
-    document.getElementById('ch-buyer-gstin').value=challanState.buyer.gstin;
-    document.getElementById('ch-buyer-state').value=challanState.buyer.state;
-    document.getElementById('ch-buyer-phone').value=challanState.buyer.phone;
-    document.getElementById('ch-buyer-email').value=challanState.buyer.email;
-    document.getElementById('ch-notes').value=challanState.notes;
-    document.getElementById('ch-buyer-dropdown').style.display='none';
-    document.getElementById('challan-items').innerHTML='';
-    document.getElementById('ch-no-status').textContent='';
-
-    items.forEach(it=>{
-      addChallanItem();
-      const last=challanState.items[challanState.items.length-1];
-      last.desc=it.desc||''; last.hsn=it.hsn||''; last.qty=parseFloat(it.qty)||0;
-      last.unit=it.unit||'Nos'; last.remarks=it.remarks||'';
-      const dEl=document.querySelector('.chi-desc-'+last.id); if(dEl)dEl.value=last.desc;
-      const hEl=document.querySelector('.chi-hsn-'+last.id); if(hEl)hEl.value=last.hsn;
-      const qEl=document.querySelector('.chi-qty-'+last.id); if(qEl)qEl.value=last.qty;
-      const uEl=document.querySelector('.chi-unit-'+last.id); if(uEl)uEl.value=last.unit;
-      const row=document.getElementById('chi-'+last.id);
-      const rmEl=row?row.querySelector('td:nth-child(5) input'):null; if(rmEl)rmEl.value=last.remarks;
-    });
-    if(!items.length) addChallanItem();
-
-    const titleEl=document.getElementById('challan-page-title'); if(titleEl)titleEl.textContent='Edit Challan — '+challanState.challanNo;
-    const lbl=document.getElementById('challan-save-btn-label'); if(lbl)lbl.textContent='Update Challan';
-    const ss=document.getElementById('challan-save-status'); if(ss){ss.textContent='✎ Editing saved challan';ss.style.color='var(--text3)';}
-
-    document.getElementById('challan-page-header').style.display='flex';
-    document.getElementById('page-new-challan').classList.remove('page-hidden');
-    showToast('Challan loaded — make changes and click Update.','success');
-  }catch(e){showToast('Failed to load challan for edit.','error');}
 }
 
 // ── CHALLAN PRINT ENGINE (no GST / Amount columns) ───────────────────────────
@@ -3480,7 +3093,7 @@ function buildQuotationHtml(data){
       '</tr>';
   });
 
-  const blankCount=Math.max(0,18-items.length-Object.keys(taxMap).length);
+  const blankCount=Math.max(0,23-items.length-Object.keys(taxMap).length);
   let blankRows='';
   for(let i=0;i<blankCount;i++){
     blankRows+='<tr style="height:26px;"><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>';
@@ -3656,6 +3269,51 @@ async function reprintQuotation(quotNo){
 
 // Wire up item-field population for quotation type
 const _origOnItemDescInput=onItemDescInput;
+// ── ITEM DESCRIPTION SEARCH (shared across Invoice / Challan / Quotation) ─────
+let itemsLoadPromise=null;
+async function ensureItemsLoaded(){
+  if(liveItems&&liveItems.length)return liveItems;
+  if(itemsLoadPromise)return itemsLoadPromise;
+  itemsLoadPromise=(async()=>{
+    try{
+      const token=sessionStorage.getItem('gme_token')||'';
+      const res=await fetch(`${googleScriptUrl}?action=getItems&token=${encodeURIComponent(token)}`);
+      const data=await res.json();
+      if(data.sessionExpired){doLogout();return [];}
+      liveItems=data.items||[];
+    }catch(e){
+      // leave liveItems as-is on failure so a later retry can succeed
+    }finally{
+      itemsLoadPromise=null;
+    }
+    return liveItems;
+  })();
+  return itemsLoadPromise;
+}
+function closeItemDropdown(id,type){
+  const drop=document.getElementById('idrop-'+type+'-'+id);
+  if(drop){drop.style.display='none';drop.innerHTML='';}
+}
+function populateInvItemFields(id,name,hsn,rate,gst,unit){
+  const item=invState.lineItems.find(i=>i.id===id);
+  if(item){item.desc=name;item.hsn=hsn;item.rate=parseFloat(rate)||0;item.gstPct=parseFloat(gst)||18;item.unit=unit||'Nos';}
+  const descEl=document.querySelector('.li-desc-'+id); if(descEl)descEl.value=name;
+  const hsnEl=document.querySelector('.li-hsn-'+id);   if(hsnEl)hsnEl.value=hsn;
+  const rateEl=document.querySelector('.li-rate-'+id); if(rateEl)rateEl.value=rate;
+  const unitEl=document.querySelector('.li-unit-'+id);
+  if(unitEl){for(let o of unitEl.options){if(o.value===unit){o.selected=true;break;}}}
+  const gstEl=document.querySelector('.li-gst-'+id);
+  if(gstEl){for(let o of gstEl.options){if(o.value===String(gst)){o.selected=true;break;}}}
+  recalcLine(id);
+}
+function populateChItemFields(id,name,hsn,unit){
+  const item=challanState.items.find(i=>i.id===id);
+  if(item){item.desc=name;item.hsn=hsn;item.unit=unit||'Nos';}
+  const descEl=document.querySelector('.chi-desc-'+id); if(descEl)descEl.value=name;
+  const hsnEl=document.querySelector('.chi-hsn-'+id);   if(hsnEl)hsnEl.value=hsn;
+  const unitEl=document.querySelector('.chi-unit-'+id);
+  if(unitEl){for(let o of unitEl.options){if(o.value===unit){o.selected=true;break;}}}
+}
 async function onItemDescInput(id,val,type){
   const query=(val||'').trim();
   closeItemDropdown(id,type);
