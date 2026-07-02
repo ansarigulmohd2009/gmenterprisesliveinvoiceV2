@@ -2334,7 +2334,7 @@ function printInvoiceHtml(data){
   const sgstAmt=parseFloat(data.sgstAmount!=null?data.sgstAmount:subTotal*sgstRate/100);
   const igstAmt=parseFloat(data.igstAmount!=null?data.igstAmount:subTotal*igstRate/100);
   const grandTotal=parseFloat(data.grandTotal||(subTotal+cgstAmt+sgstAmt+igstAmt));
-  const fmtD=(data.date||'').split('-').reverse().join('-')||'-';
+  const fmtD=fmtDMY(data.date);
 
   let itemRowsHtml='';
   items.forEach((item,idx)=>{
@@ -2466,6 +2466,16 @@ function fmtDate(d){
   if(!d)return'—';
   const dt=new Date(d);if(isNaN(dt))return String(d);
   return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+// Robust DD-MM-YYYY formatter used by the print templates (Invoice/Challan/
+// Quotation). Handles both a plain "YYYY-MM-DD" string (from <input
+// type="date">) and an ISO datetime string like "YYYY-MM-DDTHH:mm:ss.sssZ"
+// that Sheets can return when a date cell auto-converts to a Date object.
+function fmtDMY(d){
+  if(!d)return'-';
+  const s=String(d).includes('T')?String(d).split('T')[0]:String(d);
+  const p=s.split('-');
+  return p.length===3?(p[2]+'-'+p[1]+'-'+p[0]):'-';
 }
 
 function numberToWords(price){
@@ -2951,7 +2961,7 @@ async function editChallan(challanNo){
 // ── CHALLAN PRINT ENGINE (no GST / Amount columns) ───────────────────────────
 function printChallanHtml(data){
   const items=data.items||[];
-  const fmtD=(data.date||'').split('-').reverse().join('-')||'-';
+  const fmtD=fmtDMY(data.date);
   const totalQty=items.reduce((a,i)=>a+(parseFloat(i.qty)||0),0);
 
   let itemRowsHtml='';
@@ -3446,7 +3456,7 @@ function buildQuotationHtml(data){
   const taxTotal=parseFloat(data.taxTotal||0);
   const grandTotal=parseFloat(data.grandTotal||0);
 
-  const fmtD=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+  const fmtD=fmtDMY;
 
   // Group tax by GST % — only include if tax amount > 0
   const taxMap={};
