@@ -3666,7 +3666,7 @@ function buildQuotationHtml(data){
   });
 
   const filledRows=items.length+Object.keys(taxMap).length;
-  const blankCount=Math.max(0,20-filledRows);
+  const blankCount=Math.max(0,22-filledRows);
   let blankRowsHtml='';
   for(let i=0;i<blankCount;i++)blankRowsHtml+=`<tr style="height:26px;"><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td style="border-right:1px solid #000;"></td><td></td></tr>`;
 
